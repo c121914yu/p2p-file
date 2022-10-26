@@ -1,0 +1,38 @@
+/* 顶层样式 */
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #efefef;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #bfbfbf;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(64, 158, 255, 0.8);
+}
+
+* {
+  position: relative;
+  box-sizing: border-box;
+}
+
+body {
+  font-size: $sNormal;
+  line-height: $lhModerate;
+  color: $dark2;
+}
+
+/* 居中 */
+.center {
+  margin: auto;
+  text-align: center;
+}

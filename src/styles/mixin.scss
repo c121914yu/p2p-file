@@ -1,0 +1,15 @@
+/* 全局混合 */
+
+@mixin centerHeight($h:30px) {
+  height: $h;
+  line-height: $h;
+}
+
+/* 溢出省略 */
+@mixin ellipsis($line: 2) {
+  display: box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: $line;
+  -webkit-box-orient: vertical;
+}
