@@ -1,0 +1,69 @@
+
+{
+  "version": "1.0.0",
+  "tasks": [
+    {
+      // 任务的名称
+      "label": "git-add",
+      // 任务类别，shell代表脚本
+      "type": "shell",
+      // 任务脚本，可以是yarn/npm/git 等
+      "command": "git",
+      // 命令参数
+      "args": [
+        "add",
+        "."
+      ],
+      "problemMatcher": []
+    },
+    {
+      // 任务的名称
+      "label": "git-commit",
+      // 任务类别，shell代表脚本
+      "type": "shell",
+      // 任务脚本，可以是yarn/npm/git 等
+      "command": "git",
+      // 命令参数
+      "args": [
+        "commit",
+        "-m",
+        "${input:commitDesc}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      // 任务的名称
+      "label": "git-pull",
+      // 任务类别，shell代表脚本
+      "type": "shell",
+      // 任务脚本，可以是yarn/npm/git 等
+      "command": "git",
+      // 命令参数
+      "args": [
+        "pull",
+      ],
+      "problemMatcher": []
+    },
+    {
+      // 任务的名称
+      "label": "提交代码",
+      // 任务类别，shell代表脚本
+      "type": "shell",
+      "dependsOn": [ // 依赖的任务
+        "git-add",
+        "git-commit",
+        "git-pull",
+      ],
+      
+      "dependsOrder": "sequence", // 代表是依次执行，不设置会并行执行
+      "problemMatcher": []
+    },
+  ],
+  "inputs": [
+    {
+      "id": "commitDesc",
+      "type": "promptString",
+      "description": "输入提交描述"
+    }
+  ]
+}

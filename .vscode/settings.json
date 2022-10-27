@@ -1,0 +1,15 @@
+{
+  "editor.tabSize": 2, // tab大小
+  "editor.formatOnSave": false, // 关闭保存格式化，防止与lint冲突
+  "eslint.alwaysShowStatus": true, // 总是展示eslint
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.options": {
+    "extensions": [".ts", ".tsx"]
+  },
+  "eslint.run": "onType", // 实施校验
+  "files.autoSaveDelay": 3000,
+  "files.autoSave": "off", // 关闭编辑器自动保存文件，防止误关
+}

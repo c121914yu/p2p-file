@@ -1,3 +1,6 @@
+import { message } from 'antd'
+import { MessageType } from 'antd/lib/message'
+
 /**
  * 解析路径参数
  */
@@ -58,4 +61,58 @@ export function throttle(cb:()=>void, time = 500) {
     tTimer = Date.now()
     cb()
   }
+}
+
+/* antd 消息提示 */
+interface messageProps {
+  duration?: number
+  key?: string | number
+}
+message.config({
+  top: 50,
+  maxCount: 3,
+})
+
+export function $success(
+  text: string,
+  { duration = 2.5, key }: messageProps = {}
+) {
+  message.success({
+    content: text,
+    duration,
+    key,
+  })
+}
+export function $warning(
+  text: string,
+  { duration = 2.5, key }: messageProps = {}
+) {
+  message.warn({
+    content: text,
+    duration,
+    key,
+  })
+}
+export function $error(
+  text: string,
+  { duration = 2.5, key }: messageProps = {}
+) {
+  message.error({
+    content: text,
+    duration,
+    key,
+  })
+}
+export function $loading(
+  text = '加载中...',
+  { duration = 0, key }: messageProps = {}
+): MessageType {
+  return message.loading({
+    content: text,
+    duration,
+    key,
+  })
+}
+export function $hideMsg(key?:string) {
+  message.destroy(key)
 }

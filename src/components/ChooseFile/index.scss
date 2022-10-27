@@ -1,0 +1,16 @@
+.choose-file {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  cursor: pointer !important;
+
+  input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer !important;
+    opacity: 0;
+  }
+}

@@ -5,22 +5,22 @@ $primary3: #a4b4f7;
 $primary4: #a4b4f7;
 $primary5: #ecf6ff;
 
-$dark1: rgba(0, 0, 0, 0.8);
-$dark2: rgba(0, 0, 0, 0.6);
-$dark3: rgba(0, 0, 0, 0.4);
-$dark4: rgba(0, 0, 0, 0.3);
-$dark5: rgba(0, 0, 0, 0.1);
+$dark1: #262626;
+$dark2: #434343;
+$dark3: #595959;
+$dark4: #bfbfbf;
+$dark5: #f0f0f0;
 
 $red: #f56c6c;
 
 /* 阴影 */
-$shadow1: 1px 1px 5px rgba(144, 140, 139, 0.65);
-$shadow2: 0 2px 4px rgba(0, 0, 0, 0.2);
-$shadow-below: 0 5px 2px #efefef;
+$shadow1: 0 1px 2px -2px rgba(0, 0, 0, 0.16),0 3px 6px 0 rgba(0, 0, 0, 0.12),0 5px 12px 4px rgba(0, 0, 0, 0.09);
+$shadow2: 0 3px 6px -4px rgba(0, 0, 0, 0.12),0 6px 16px 0 rgba(0, 0, 0, 0.08),0 9px 28px 8px rgba(0, 0, 0, 0.05);
+$shadow3: 0 6px 16px -8px rgba(0, 0, 0, 0.08),0 9px 28px 0 rgba(0, 0, 0, 0.05),0 12px 48px 16px rgba(0, 0, 0, 0.03);
 
 /* 边框 */
-$borderLight: 2px solid #f2f6fc;
-$borderLighter: 2px solid #dcdfe6;
+$border1: 1px solid #d9d9d9;
+$border2: 2px solid #dcdfe6;
 
 /* 圆角 */
 $radiusLarger: 44px;
@@ -34,8 +34,11 @@ $lhModerate: 1.5;
 $lhLoose: 1.7;
 
 /* 字体大小 */
-$sLarger: 24px;
-$sLarge: 20px;
+$sLarger: 28px;
+$sLarge: 22px;
 $sNormal: 16px;
 $sSmall: 14px;
 $sMini: 12px;
+
+$navbarHeight: 70px;
+$screenMinWidth: 1000px;
