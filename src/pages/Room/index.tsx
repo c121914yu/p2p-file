@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Card, Row, Col, Button, Tag, Empty } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
 import { LOGO, FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
 import { FileType } from '@/types'
 import { formatSize } from '@/utils'
 import AhaAvatar from '@/components/Avatar'
 import ChooseFile from '@/components/ChooseFile'
+import FileItem from './components/FileItem'
 import './index.scss'
 
 const Room = () => {
@@ -143,10 +143,7 @@ const Room = () => {
         gutter={[15, 15]}
       >
         <Col span={8}>
-          <Card
-            className="files-card-item"
-            type='inner'
-            hoverable
+          <FileItem
             title={(
               <header>
                 <AhaAvatar
@@ -159,78 +156,24 @@ const Room = () => {
                 </ChooseFile>
               </header>
             )}
-          >
-            {
-              myFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="file"
-                >
-                  <div className="left">
-                    <div className="name">{file.name}</div>
-                    <div className="size">{file.size}</div>
-                  </div>
-                  <div className="right">
-                    {
-                      (() => {
-                        const statusMap = FILE_STATUS_TEXT[ file.status ]
-
-                        return (
-                          <Tag
-                            className="status"
-                            color={statusMap.color}>
-                            {statusMap.label}
-                          </Tag>
-                        )
-                      })()
-                    }
-                    {
-                      file.status !== FILE_STATUS.sending && (
-                        <div
-                          className="delete"
-                          onClick={() => {
-                            if (!confirm('确认移除该文件？')) return
-                            setMyFiles(myFiles.filter(item => item.id !== file.id))
-                          }}>
-                          <DeleteOutlined />
-                        </div>
-                      )
-                    }
-                  </div>
-                </div>
-              ))
-            }
-            {
-              myFiles.length === 0 && (
-                <Empty
-                  style={{ fontSize: 14 }}
-                  description="点击右上角选择文件进行分享吧"/>
-              )
-            }
-          </Card>
+            files={myFiles}
+            emptyText="点击右上角选择文件进行分享吧"
+            setMyFiles={setMyFiles}
+          />
         </Col>
         <Col span={8}>
-          <Card
-            className="files-card-item"
-            hoverable
-          >
-            <header>
-              <AhaAvatar
-                url={LOGO}
-                size="30"
-              />
-              <span className='name'>我的文件</span>
-            </header>
-            <main>
-              <div className="file">
-                <div className="left">
-                  <div className="name">下属身上</div>
-                  <div className="size">22KB</div>
-                </div>
-                <div className="delete"></div>
-              </div>
-            </main>
-          </Card>
+          <FileItem
+            title={(
+              <header>
+                <AhaAvatar
+                  url={LOGO}
+                  size="30"
+                />
+                <span className='name'>yjl文件</span>
+              </header>
+            )}
+            files={myFiles}
+          />
         </Col>
         <Col span={8}>
           <Card
