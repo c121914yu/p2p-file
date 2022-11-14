@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, Row, Col, Button, Tag, Empty } from 'antd'
 import { LOGO, FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
 import { FileType } from '@/types'
@@ -6,10 +6,15 @@ import { formatSize } from '@/utils'
 import AhaAvatar from '@/components/Avatar'
 import ChooseFile from '@/components/ChooseFile'
 import FileItem from './components/FileItem'
+import { useRoom } from './hooks/useRoom'
 import './index.scss'
 
 const Room = () => {
   const [myFiles, setMyFiles] = useState<FileType[]>([])
+
+  const {
+    init
+  } = useRoom()
 
   const selectFiles = useCallback(async(files:File[]) => {
     setMyFiles(files.map(file => {

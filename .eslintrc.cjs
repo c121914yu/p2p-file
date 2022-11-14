@@ -20,6 +20,12 @@ module.exports = {
   },
   globals: {
     NodeJS: 'readonly',
+    Peer: 'readonly'
+  },
+  settings: {
+    'react': {
+      'version': 'detect'
+    }
   },
   /**
    * "off" 或 0 - 关闭规则
@@ -28,6 +34,10 @@ module.exports = {
    */
   rules: {
     '@typescript-eslint/ban-ts-comment': 0,
+    '@typescript-eslint/no-unused-vars': [
+      1,
+      { 'argsIgnorePattern': '^_' }
+    ],
     'react-hooks/exhaustive-deps': 1,
     'jsx-a11y/click-events-have-key-events': 0,
     'jsx-a11y/no-static-element-interactions': 0,

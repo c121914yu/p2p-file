@@ -12,7 +12,7 @@ const CreateRoomModal = ({
 }: Props) => {
   const navigate = useNavigate()
   const onOk = useCallback(() => {
-    navigate('/room/fasts')
+    navigate(`/room/${ Date.now() }`)
     onClose()
   }, [navigate, onClose])
 
