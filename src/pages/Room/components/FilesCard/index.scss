@@ -1,0 +1,37 @@
+.files-card {
+  .file > .ant-card-body {
+    display: flex;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    font-size: $sSmall;
+    cursor: default !important;
+
+    &:not(:last-of-type) {
+      border-bottom: $border1;
+    }
+
+    .left {
+      flex: 1;
+      margin-right: 10px;
+      overflow: hidden;
+
+      .name {
+        font-size: $sNormal;
+      }
+
+      .size {
+        font-size: $sMini;
+        color: $dark3;
+      }
+    }
+
+    .right {
+      text-align: center;
+
+      .delete {
+        margin-top: 10px;
+        cursor: pointer;
+      }
+    }
+  }
+}

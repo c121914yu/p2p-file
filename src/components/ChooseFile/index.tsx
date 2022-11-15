@@ -9,6 +9,7 @@ interface Props {
   multiple?: boolean
   accept?: string
   maxSize?: number // 多少M
+  disabled?: boolean
 }
 
 const ChooseFile = ({
@@ -16,7 +17,8 @@ const ChooseFile = ({
   chooseFile,
   multiple = true,
   accept = '*',
-  maxSize = 200
+  maxSize = 200,
+  disabled = true
 }:Props) => (
   <label className="choose-file">
     {children}
@@ -24,6 +26,7 @@ const ChooseFile = ({
       type="file"
       accept={accept}
       multiple={multiple}
+      disabled={disabled}
       onChange={(e) => {
         if (e.target.files && e.target.files?.length > 0) {
           chooseFile(Array.from(e.target.files)

@@ -1,7 +1,7 @@
 /* 与服务器socket链接 */
 import { io, Socket } from 'socket.io-client'
 import { ServerToClientEvents, ClientToServerEvents } from '@/types'
-import { callbackEnum } from '@/constants'
+import { socketCallbackEnum } from '@/constants'
 
 export type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>
 
@@ -22,7 +22,7 @@ export class SocketLink {
     })
     this.socket.on('connect', () => {
       connectedCb(this)
-      console.log('连接成功')
+      console.log('socket连接成功')
     })
 
     this.socket.on('connect_error', e => {
@@ -45,11 +45,11 @@ export class SocketLink {
   /**
    * 注册回调函数
    */
-  registerCallback(key:`${ callbackEnum }`, cb:(data: any) => void) {
+  registerCallback(key:`${ socketCallbackEnum }`, cb:(data: any) => void) {
     this.callbackMap.set(key, cb)
   }
 
-  unregisterCallback(key:`${ callbackEnum }`) {
+  unregisterCallback(key:`${ socketCallbackEnum }`) {
     this.callbackMap.delete(key)
   }
 

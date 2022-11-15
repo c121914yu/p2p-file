@@ -1,49 +1,85 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { UserType } from '@/types'
-import { SocketLink, SocketType } from '../utils/socket'
+import { peerCallbackEnum } from '@/constants'
+import { SocketLink } from '../utils/socket'
 import { PeerLink } from '../utils/peer'
+import { useFiles } from './useFile'
 
 export function useRoom() {
   const { id: roomId } = useParams()
-  const [socket, setSocket] = useState<SocketLink>()
-  const [peer, setPeer] = useState<PeerLink>()
-  const [init, setInit] = useState(false)
+  const socket = useRef<SocketLink>()
+  const peer = useRef<PeerLink>()
+  const [linking, setLinking] = useState(true)
+  const [refresh, setFresh] = useState(0)
 
-  const newJoinRoom = (users:UserType[]) => {
-    console.log(peer)
+  const {
+    roomFiles,
+    setRoomFiles,
+    addFiles
+  } = useFiles()
 
-    if (!peer) return
-    const otherUser = users.filter(user => user.peerId !== peer.getPeerId())
+  /**
+   * 新节点加入，建立连接(自己加入也会触发)
+   */
+  const newJoinRoom = useCallback((users:UserType[]) => {
+    if (!peer.current) return
+    const otherUser = users.filter(user => user.peerId !== peer.current?.getPeerId())
 
+    console.log('加入了房间, 目前房间人:', users)
+    setLinking(true)
     // p2p连接其他用户
-    console.log('加入了房间', otherUser)
-  }
-  const userLeaveRoom = useCallback((users:UserType[]) => {
-    // const otherUser = users.filter(user => user.clientId !== clientId)
+    otherUser.forEach(user => {
+      /* 连接另一个节点。并在连接成功后，触发一次添加文件事件，把自己有的文件发过去 */
+      peer.current?.connectPeer(user.peerId, () => {
+        setRoomFiles(files => {
+          peer.current?.sendDataToPeer(user.peerId, peerCallbackEnum.addFiles, files.filter(file => file.peerId === peer.current?.getPeerId()))
+          return files
+        })
+      })
+    })
+  }, [setRoomFiles])
 
-    console.log('离开了房间')
+  /**
+   * 用户离开，删除离开用户的缓存
+   */
+  const userLeaveRoom = useCallback((users:UserType[]) => {
+    if (!peer.current) return
+    console.log('有人离开了房间, 目前房间人:', users)
+    peer.current.closeSomeConnection()
+  }, [])
+
+  /**
+   * 发送消息
+   */
+  const sendDataToOtherPeers = useCallback((event:string, data:any) => {
+    peer.current?.sendDataToOtherPeers(event, data)
   }, [])
 
   const initSocket = useCallback(() => new Promise<SocketLink>(resolve => {
-    setSocket(new SocketLink({
+    socket.current = new SocketLink({
       connectedCb: (socket) => {
         // 注册回调
         socket.registerCallback('new-join', newJoinRoom)
         socket.registerCallback('leave-room', userLeaveRoom)
         resolve(socket)
       }
-    }))
-  }), [])
+    })
+  }), [newJoinRoom, userLeaveRoom])
 
   const initPeer = useCallback(() => new Promise<string>(resolve => {
-    setPeer(new PeerLink({
+    peer.current = new PeerLink({
       openedCb: (id:string) => {
         resolve(id)
       }
-    }))
-  }), [])
+    })
+    peer.current.registerCallback(peerCallbackEnum.addFiles, addFiles)
+    peer.current.registerCallback(peerCallbackEnum.linkFinish, () => setLinking(false)) // peer连接完成
+  }), [addFiles])
 
+  /**
+   * 加入房间，直接发送对应的socket信息
+   */
   const joinRoom = useCallback((socketItem:SocketLink, peerId:string) => {
     roomId && socketItem.joinRoom(peerId, roomId)
   }, [roomId])
@@ -57,22 +93,28 @@ export function useRoom() {
     // 加入房间
     joinRoom(socketItem, peerId)
 
-    // setInit(true)
+    setFresh(state => state + 1)
   }
 
   useEffect(() => {
-    console.log(111111111111)
     initRoom()
   }, [])
 
   useEffect(() => () => {
-    socket?.disconnect()
+    socket.current?.disconnect()
   }, [socket])
   useEffect(() => () => {
-    peer?.disconnect()
+    peer.current?.disconnect()
   }, [peer])
 
   return {
-    init
+    roomFiles,
+    setRoomFiles,
+    linking,
+    sendDataToOtherPeers,
+    peerId: peer.current?.getPeerId(),
+    peer,
+    refresh,
+    setFresh
   }
 }

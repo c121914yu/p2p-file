@@ -1,4 +1,4 @@
-import { callbackEnum } from '@/constants'
+import { socketCallbackEnum } from '@/constants'
 export interface UserType {
   clientId: string
   roomId: string
@@ -6,7 +6,7 @@ export interface UserType {
 }
 
 interface ServerToClientEventsParams {
-  type: `${ callbackEnum }`
+  type: `${ socketCallbackEnum }`
   [data: string]: any
 }
 

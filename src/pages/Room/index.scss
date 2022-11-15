@@ -1,7 +1,4 @@
 .room {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   padding: 5vh;
 
   .animation {
@@ -15,55 +12,10 @@
     background: linear-gradient(to top, rgba($color: $primary4, $alpha: 0.01) 50%, rgba($color: $primary4, $alpha: 0.22) 100%);
   }
 
-  .files-card {
-    width: 100%;
-
-    &-item {
-      cursor: default !important;
-
-      header {
-        display: flex;
-        align-items: center;
-
-        .name {
-          flex: 1;
-          margin: 0 10px;
-        }
-      }
-
-      .ant-card-body {
-        height: calc(45vh - 10px);
-        overflow-y: auto;
-
-        .file {
-          display: flex;
-          padding-bottom: 5px;
-          margin-bottom: 10px;
-          font-size: $sSmall;
-
-          &:not(:last-of-type) {
-            border-bottom: $border1;
-          }
-
-          .left {
-            flex: 1;
-
-            .size {
-              font-size: $sMini;
-              color: $dark3;
-            }
-          }
-
-          .right {
-            text-align: center;
-
-            .delete {
-              margin-top: 10px;
-              cursor: pointer;
-            }
-          }
-        }
-      }
-    }
+  .add-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    cursor: pointer;
   }
 }

@@ -1,32 +1,50 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, Row, Col, Button, Tag, Empty } from 'antd'
-import { LOGO, FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
+import React, { useEffect, useCallback, useMemo } from 'react'
+import { Button } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import { FILE_STATUS, peerCallbackEnum } from '@/constants'
 import { FileType } from '@/types'
 import { formatSize } from '@/utils'
-import AhaAvatar from '@/components/Avatar'
 import ChooseFile from '@/components/ChooseFile'
-import FileItem from './components/FileItem'
+import FileItem from './components/FilesCard'
 import { useRoom } from './hooks/useRoom'
 import './index.scss'
 
 const Room = () => {
-  const [myFiles, setMyFiles] = useState<FileType[]>([])
 
   const {
-    init
+    roomFiles,
+    setRoomFiles,
+    peerId,
+    sendDataToOtherPeers,
+    linking
   } = useRoom()
 
-  const selectFiles = useCallback(async(files:File[]) => {
-    setMyFiles(files.map(file => {
+  const canAdd = useMemo(() => !!peerId && !linking, [linking, peerId])
+
+  /**
+   * 选择文件，更新本地文件，并通知其他用户更新
+   */
+  const selectFiles = useCallback(async(files:File[] | FileType[]) => {
+    if (!peerId) return
+    const newFiles = files.map((file, i:number) => {
       return {
-        id: file.lastModified,
+        id: `${ Date.now() }-${ i }`,
         name: file.name,
         size: formatSize(file.size),
         status: FILE_STATUS.leisure,
-        raw: file
+        raw: file,
+        peerId
       }
-    }).concat(myFiles))
-  }, [myFiles])
+    })
+
+    setRoomFiles([...newFiles, ...roomFiles])
+    sendDataToOtherPeers(peerCallbackEnum[ 'addFiles' ], newFiles.map(file => {
+      return {
+        ...file,
+        raw: null
+      }
+    }))
+  }, [peerId, setRoomFiles, roomFiles, sendDataToOtherPeers])
 
   /* 加载动画 */
   useEffect(() => {
@@ -143,90 +161,23 @@ const Room = () => {
         id='animation'
         className="animation"
       />
-      <Row
-        className="files-card"
-        gutter={[15, 15]}
-      >
-        <Col span={8}>
-          <FileItem
-            title={(
-              <header>
-                <AhaAvatar
-                  url={LOGO}
-                  size="30"
-                />
-                <span className='name'>我的文件</span>
-                <ChooseFile chooseFile={selectFiles}>
-                  <Button>选择文件</Button>
-                </ChooseFile>
-              </header>
-            )}
-            files={myFiles}
-            emptyText="点击右上角选择文件进行分享吧"
-            setMyFiles={setMyFiles}
+      <div className="add-btn">
+        <ChooseFile
+          disabled={!canAdd}
+          chooseFile={selectFiles}>
+          <Button
+            size='large'
+            shape='circle'
+            type='primary'
+            disabled={!canAdd}
+            icon={<PlusOutlined />}
           />
-        </Col>
-        <Col span={8}>
-          <FileItem
-            title={(
-              <header>
-                <AhaAvatar
-                  url={LOGO}
-                  size="30"
-                />
-                <span className='name'>yjl文件</span>
-              </header>
-            )}
-            files={myFiles}
-          />
-        </Col>
-        <Col span={8}>
-          <Card
-            className="files-card-item"
-            hoverable
-          >
-            <header>
-              <AhaAvatar
-                url={LOGO}
-                size="30"
-              />
-              <span className='name'>我的文件</span>
-            </header>
-            <main>
-              <div className="file">
-                <div className="left">
-                  <div className="name">下属身上</div>
-                  <div className="size">22KB</div>
-                </div>
-                <div className="delete"></div>
-              </div>
-            </main>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card
-            className="files-card-item"
-            hoverable
-          >
-            <header>
-              <AhaAvatar
-                url={LOGO}
-                size="30"
-              />
-              <span className='name'>我的文件</span>
-            </header>
-            <main>
-              <div className="file">
-                <div className="left">
-                  <div className="name">下属身上</div>
-                  <div className="size">22KB</div>
-                </div>
-                <div className="delete"></div>
-              </div>
-            </main>
-          </Card>
-        </Col>
-      </Row>
+        </ChooseFile>
+      </div>
+      <FileItem
+        files={roomFiles}
+        setFiles={selectFiles}
+      />
     </div>
   )
 }
