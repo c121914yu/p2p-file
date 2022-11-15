@@ -2,7 +2,7 @@ import { FILE_STATUS } from '@/constants'
 import { UserType } from './index'
 
 export interface FileType {
-    id: string | number
+    id: string
     name: string
     size: string
     status: `${ FILE_STATUS }`

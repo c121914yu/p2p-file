@@ -17,7 +17,7 @@ const ChooseFile = ({
   chooseFile,
   multiple = true,
   accept = '*',
-  maxSize = 200,
+  maxSize = 99999,
   disabled = true
 }:Props) => (
   <label className="choose-file">
