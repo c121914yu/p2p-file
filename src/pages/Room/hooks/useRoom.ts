@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { UserType } from '@/types'
+import { UserType, FileType } from '@/types'
 import { peerCallbackEnum } from '@/constants'
 import { SocketLink } from '../utils/socket'
 import { PeerLink } from '../utils/peer'
@@ -16,7 +16,8 @@ export function useRoom() {
   const {
     roomFiles,
     setRoomFiles,
-    addFiles
+    addFiles,
+    downloadFile
   } = useFiles()
 
   /**
@@ -50,11 +51,25 @@ export function useRoom() {
   }, [])
 
   /**
-   * 发送消息
+   * 请求下载回调
    */
-  const sendDataToOtherPeers = useCallback((event:string, data:any) => {
-    peer.current?.sendDataToOtherPeers(event, data)
-  }, [])
+  const reqDownloadCallback = useCallback((peerId:string, file: FileType) => {
+    setRoomFiles(files => {
+      const bufferFile = files.find(item => item.id === file.id)
+
+      peer.current?.sendDataToPeer(peerId, peerCallbackEnum.resDownload, bufferFile)
+      return files
+    })
+  }, [setRoomFiles])
+
+  /**
+   * 响应文件下载（接收文件流）
+   */
+  const resDownloadCallback = useCallback((peerId: string, file: FileType) => {
+    setRoomFiles(files => files.map(item => item.id === file.id ? file : item))
+    downloadFile(file)
+    console.log('收到下载数据', peerId, file)
+  }, [downloadFile, setRoomFiles])
 
   const initSocket = useCallback(() => new Promise<SocketLink>(resolve => {
     socket.current = new SocketLink({
@@ -74,8 +89,10 @@ export function useRoom() {
       }
     })
     peer.current.registerCallback(peerCallbackEnum.addFiles, addFiles)
+    peer.current.registerCallback(peerCallbackEnum.reqDownload, reqDownloadCallback)
+    peer.current.registerCallback(peerCallbackEnum.resDownload, resDownloadCallback)
     peer.current.registerCallback(peerCallbackEnum.linkFinish, () => setLinking(false)) // peer连接完成
-  }), [addFiles])
+  }), [addFiles, reqDownloadCallback, resDownloadCallback])
 
   /**
    * 加入房间，直接发送对应的socket信息
@@ -96,6 +113,22 @@ export function useRoom() {
     setFresh(state => state + 1)
   }
 
+  /**
+   * 点击下载文件
+   * 向对应文件的作者，发出下载请求。
+   */
+  const onclickDownloadFile = useCallback((file:FileType) => {
+    // 自己的文件，不要下载
+    if (file.peerId === peer.current?.getPeerId()) return
+
+    if (file.raw) {
+      downloadFile(file)
+      return
+    }
+
+    peer.current?.sendDataToPeer(file.peerId, peerCallbackEnum.reqDownload, file)
+  }, [downloadFile])
+
   useEffect(() => {
     initRoom()
   }, [])
@@ -111,10 +144,11 @@ export function useRoom() {
     roomFiles,
     setRoomFiles,
     linking,
-    sendDataToOtherPeers,
+    sendDataToOtherPeers: (event:string, data:any) => { peer.current?.sendDataToOtherPeers(event, data) },
     peerId: peer.current?.getPeerId(),
     peer,
     refresh,
-    setFresh
+    setFresh,
+    onclickDownloadFile
   }
 }

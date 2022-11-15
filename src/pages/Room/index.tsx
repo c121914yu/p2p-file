@@ -16,7 +16,8 @@ const Room = () => {
     setRoomFiles,
     peerId,
     sendDataToOtherPeers,
-    linking
+    linking,
+    onclickDownloadFile
   } = useRoom()
 
   const canAdd = useMemo(() => !!peerId && !linking, [linking, peerId])
@@ -177,6 +178,8 @@ const Room = () => {
       <FileItem
         files={roomFiles}
         setFiles={selectFiles}
+        peerId={peerId}
+        onclickDownloadFile={onclickDownloadFile}
       />
     </div>
   )

@@ -4,5 +4,7 @@ export enum socketCallbackEnum {
 }
 export enum peerCallbackEnum {
   addFiles = 'add-files',
-  linkFinish = 'link-finish'
+  linkFinish = 'link-finish',
+  reqDownload = 'request-download',
+  resDownload = 'response-download'
 }

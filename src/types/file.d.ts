@@ -6,6 +6,6 @@ export interface FileType {
     name: string
     size: string
     status: `${ FILE_STATUS }`
-    raw: File | null,
+    raw: File | ArrayBuffer |null,
     peerId: string
 }

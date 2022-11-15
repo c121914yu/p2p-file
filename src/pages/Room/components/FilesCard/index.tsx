@@ -1,6 +1,6 @@
 import React, { Dispatch } from 'react'
 import { Card, Tag, Empty, Row, Col } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
+import { DownloadOutlined } from '@ant-design/icons'
 import { FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
 import { FileType } from '@/types'
 
@@ -9,11 +9,15 @@ import './index.scss'
 interface Props {
   files: FileType[]
   setFiles?: (files:FileType[]) => void
+  peerId?: string
+  onclickDownloadFile: (file:FileType) => void
 }
 
 const FilesCard = ({
   files,
-  setFiles
+  setFiles,
+  peerId,
+  onclickDownloadFile
 }:Props) => {
   console.log(files)
   return (
@@ -50,6 +54,15 @@ const FilesCard = ({
                         </Tag>
                       )
                     })()
+                  }
+                  {
+                    file.status !== FILE_STATUS.sending && file.peerId !== peerId && (
+                      <div
+                        className="icon"
+                        onClick={() => onclickDownloadFile(file)}>
+                        <DownloadOutlined style={{ fontSize: 16 }} />
+                      </div>
+                    )
                   }
                   {/* {
                     setFiles && file.status !== FILE_STATUS.sending && (
