@@ -1,9 +1,9 @@
 import React, { useEffect, useCallback, useMemo } from 'react'
 import { Button } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { FILE_STATUS, peerCallbackEnum } from '@/constants'
 import { FileType } from '@/types'
-import { formatSize } from '@/utils'
+import { copyData, formatSize } from '@/utils'
 import ChooseFile from '@/components/ChooseFile'
 import FileItem from './components/FilesCard'
 import { useRoom } from './hooks/useRoom'
@@ -46,6 +46,10 @@ const Room = () => {
       }
     }))
   }, [peerId, setRoomFiles, roomFiles, sendDataToOtherPeers])
+
+  const onclickShare = useCallback(() => {
+    copyData(location.href, '已复制房间连接，发送给朋友吧')
+  }, [])
 
   /* 加载动画 */
   useEffect(() => {
@@ -162,7 +166,7 @@ const Room = () => {
         id='animation'
         className="animation"
       />
-      <div className="add-btn">
+      <div className="btn add-btn">
         <ChooseFile
           disabled={!canAdd}
           chooseFile={selectFiles}>
@@ -174,6 +178,14 @@ const Room = () => {
             icon={<PlusOutlined />}
           />
         </ChooseFile>
+      </div>
+      <div className="btn share-btn">
+        <Button
+          size='large'
+          shape='circle'
+          onClick={onclickShare}
+          icon={<ShareAltOutlined />}
+        />
       </div>
       <FileItem
         files={roomFiles}

@@ -12,11 +12,18 @@
     background: linear-gradient(to top, rgba($color: $primary4, $alpha: 0.01) 50%, rgba($color: $primary4, $alpha: 0.22) 100%);
   }
 
-  .add-btn {
+  .btn {
     position: fixed;
     right: 20px;
-    bottom: 20px;
     z-index: 10;
     cursor: pointer;
+
+    &.add-btn {
+      bottom: 20px;
+    }
+
+    &.share-btn {
+      bottom: 80px;
+    }
   }
 }

@@ -2,6 +2,21 @@ import { message } from 'antd'
 import { MessageType } from 'antd/lib/message'
 
 /**
+ * 复制
+ */
+export function copyData(data:string, successText = '') {
+  const clipboardObj = navigator.clipboard
+
+  clipboardObj.writeText(data)
+    .then(() => {
+      successText !== '' && $success(successText)
+    })
+    .catch(() => {
+      $error('浏览器不兼容')
+    })
+}
+
+/**
  * 解析路径参数
  */
 export function sq(str = window.location.href) {
@@ -39,7 +54,7 @@ export function qs(obj:{[key:string]:any}, hasMask = true) {
 /**
 * 防抖
 */
-let dTimer:NodeJS.Timeout
+let dTimer:any
 
 export function debounce(cb:()=>void, delay = 500) {
   if (dTimer) {
