@@ -17,7 +17,7 @@ export class SocketLink {
 
   constructor({ connectedCb }: Props) {
     this.socket = io(import.meta.env.VITE_SOCKET_IO, {
-      path: '/p2p-file/',
+      path: import.meta.env.VITE_SOCKET_PATH,
       transports: ['polling', 'websocket'],
     })
     this.socket.on('connect', () => {
