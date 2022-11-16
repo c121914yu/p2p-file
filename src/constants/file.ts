@@ -10,7 +10,7 @@ export const FILE_STATUS_TEXT:{[key: number]:{label: string, color: string}} = {
   },
   '1': {
     label: '传输中',
-    color: 'blur'
+    color: 'blue'
   },
   '2': {
     label: '出错了',

@@ -34,10 +34,7 @@ export class PeerLink {
        */
       conn.on('data', (e:any) => {
         console.log('收到一条信息====', e)
-        if (this.callbackMap.has(e.event)) {
-          // @ts-ignore-nextLine
-          this.callbackMap.get(e.event)(e.peerId, e.data)
-        }
+        this.runCallback(e.event, e.peerId, e.data)
       })
     })
 
@@ -49,10 +46,9 @@ export class PeerLink {
     })
 
     /**
-     * 有节点销毁，从缓存中删除
+     * 本节点销毁
      */
     this.peer.on('close', () => {
-      this.closeSomeConnection()
       console.log('节点销毁', this.otherConn)
     })
   }
@@ -66,26 +62,36 @@ export class PeerLink {
   }
 
   /**
-   * 关闭部分连接节点
+   * 把断开的节点，从缓存中删除
    */
-  closeSomeConnection() {
+  closeSomeConnection(users:UserType[]) {
     // 查看目前缓存里的节点。
     for (const key of this.otherConn.keys()) {
       // 如果缓存的节点，在已连接的节点中找不到，说明对方已经断开，则从缓存中删除
-      const connItem = this.peer.connections[ key ]
+      const user = users.find(user => user.peerId === key)
 
-      if (!connItem || connItem.length > 0) {
+      if (!user) {
         this.otherConn.get(key).close()
         this.otherConn.delete(key)
       }
     }
-    console.log('有节点断开连接', this.peer.connections)
+    console.log('有节点断开连接', this.otherConn)
   }
 
   getPeerId():string {
     return this.peer.id
   }
 
+  /**
+   * 获取目前连接的节点
+   */
+  getOtherConnections() {
+    return this.otherConn
+  }
+
+  /**
+   * 开始连接节点
+   */
   connectPeer(peerId:string, openCb:() => void) {
     if (this.otherConn.has(peerId)) return
     console.log('开始连接节点:', peerId)
@@ -96,13 +102,11 @@ export class PeerLink {
     conn.on('open', () => {
       openCb()
       // 连接完成
-      if (this.callbackMap.has(peerCallbackEnum.linkFinish)) {
-        // @ts-ignore-nextLine
-        this.callbackMap.get(peerCallbackEnum.linkFinish)()
-      }
+      this.runCallback(peerCallbackEnum.linkFinish)
       console.log('节点已打开，可以发送消息了===')
     })
     conn.on('error', (e) => {
+      this.runCallback(peerCallbackEnum.downloadError)
       console.log('点对点通信出错===', e)
     })
   }
@@ -119,7 +123,17 @@ export class PeerLink {
   }
 
   /**
-   * 向其他节点发送信息
+   * 执行回调
+   */
+  runCallback(key:`${ peerCallbackEnum }`, peerId?:string, data?:any) {
+    if (this.callbackMap.has(key)) {
+      // @ts-ignore-nextLine
+      this.callbackMap.get(key)(peerId, data)
+    }
+  }
+
+  /**
+   * 向所有连接的节点发送信息
    */
   sendDataToOtherPeers(event: string, data:any) {
     this.otherConn.forEach((conn:any, peerId:string) => {
@@ -139,7 +153,9 @@ export class PeerLink {
         peerId: this.peer.id,
         data
       })
+      return true
     }
+    return false
   }
 }
 

@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { UserType, FileType } from '@/types'
 import { peerCallbackEnum, FILE_STATUS } from '@/constants'
+import { $warning } from '@/utils'
 import { SocketLink } from '../utils/socket'
 import { PeerLink } from '../utils/peer'
 import { useFiles } from './useFile'
@@ -10,7 +11,7 @@ export function useRoom() {
   const { id: roomId } = useParams()
   const socket = useRef<SocketLink>()
   const peer = useRef<PeerLink>()
-  const [linking, setLinking] = useState(true)
+  const [linking, setLinking] = useState(false)
   const [refresh, setFresh] = useState(0)
 
   const {
@@ -18,7 +19,8 @@ export function useRoom() {
     setRoomFiles,
     addFiles,
     downloadFile,
-    updateFileStatus
+    updateFileStatus,
+    delDisconnectedFiles
   } = useFiles()
 
   /**
@@ -29,9 +31,9 @@ export function useRoom() {
     const otherUser = users.filter(user => user.peerId !== peer.current?.getPeerId())
 
     console.log('加入了房间, 目前房间人:', users)
-    setLinking(true)
     // p2p连接其他用户
     otherUser.forEach(user => {
+      setLinking(true)
       /* 连接另一个节点。并在连接成功后，触发一次添加文件事件，把自己有的文件发过去 */
       peer.current?.connectPeer(user.peerId, () => {
         setRoomFiles(files => {
@@ -48,8 +50,9 @@ export function useRoom() {
   const userLeaveRoom = useCallback((users:UserType[]) => {
     if (!peer.current) return
     console.log('有人离开了房间, 目前房间人:', users)
-    peer.current.closeSomeConnection()
-  }, [])
+    peer.current.closeSomeConnection(users)
+    delDisconnectedFiles(peer.current?.getPeerId(), peer.current?.getOtherConnections())
+  }, [delDisconnectedFiles])
 
   /**
    * 请求下载回调（收到请求下载）
@@ -75,6 +78,16 @@ export function useRoom() {
     updateFileStatus(file.id, FILE_STATUS.leisure)
   }, [downloadFile, setRoomFiles, updateFileStatus])
 
+  /**
+   * 下载错误
+   * 所有文件变成error态
+   */
+  const downloadErrorCallback = useCallback(() => {
+    roomFiles.forEach(file => {
+      updateFileStatus(file.id, FILE_STATUS.error)
+    })
+  }, [roomFiles, updateFileStatus])
+
   const initSocket = useCallback(() => new Promise<SocketLink>(resolve => {
     socket.current = new SocketLink({
       connectedCb: (socket) => {
@@ -95,8 +108,9 @@ export function useRoom() {
     peer.current.registerCallback(peerCallbackEnum.addFiles, addFiles)
     peer.current.registerCallback(peerCallbackEnum.reqDownload, reqDownloadCallback)
     peer.current.registerCallback(peerCallbackEnum.resDownload, resDownloadCallback)
+    peer.current.registerCallback(peerCallbackEnum.downloadError, downloadErrorCallback)
     peer.current.registerCallback(peerCallbackEnum.linkFinish, () => setLinking(false)) // peer连接完成
-  }), [addFiles, reqDownloadCallback, resDownloadCallback])
+  }), [addFiles, downloadErrorCallback, reqDownloadCallback, resDownloadCallback])
 
   /**
    * 加入房间，直接发送对应的socket信息
@@ -131,9 +145,15 @@ export function useRoom() {
       downloadFile(file)
       return
     }
-    updateFileStatus(file.id, FILE_STATUS.sending)
-    peer.current?.sendDataToPeer(file.peerId, peerCallbackEnum.reqDownload, file)
-  }, [downloadFile, updateFileStatus])
+    const sendRes = peer.current?.sendDataToPeer(file.peerId, peerCallbackEnum.reqDownload, file)
+
+    if (sendRes) { // 消息发送出去了
+      updateFileStatus(file.id, FILE_STATUS.sending)
+    } else { // 消息没发送出去
+      $warning('该节点已经退出房间')
+      delDisconnectedFiles(peer.current?.getPeerId(), peer.current?.getOtherConnections())
+    }
+  }, [delDisconnectedFiles, downloadFile, updateFileStatus])
 
   useEffect(() => {
     initRoom()

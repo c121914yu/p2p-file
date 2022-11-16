@@ -6,5 +6,6 @@ export enum peerCallbackEnum {
   addFiles = 'add-files',
   linkFinish = 'link-finish',
   reqDownload = 'request-download',
-  resDownload = 'response-download'
+  resDownload = 'response-download',
+  downloadError = 'download-error'
 }

@@ -16,6 +16,13 @@ export function useFiles() {
   }, [])
 
   /**
+   * 删除已经离线节点的文件
+   */
+  const delDisconnectedFiles = useCallback((myPeerId?:string, otherConn?: Map<string, (peerId: string, data: any) => void>) => {
+    otherConn && setRoomFiles(files => files.filter(file => file.peerId === myPeerId || otherConn.has(file.peerId)))
+  }, [])
+
+  /**
    * 根据fileId，更新文件的状态
    */
   const updateFileStatus = useCallback((fileId:string, status: `${ FILE_STATUS }`) => {
@@ -49,6 +56,7 @@ export function useFiles() {
     setRoomFiles,
     addFiles,
     downloadFile,
-    updateFileStatus
+    updateFileStatus,
+    delDisconnectedFiles
   }
 }

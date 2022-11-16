@@ -1,6 +1,6 @@
 import React, { Dispatch } from 'react'
 import { Card, Tag, Empty, Row, Col } from 'antd'
-import { DownloadOutlined } from '@ant-design/icons'
+import { DownloadOutlined, LoadingOutlined } from '@ant-design/icons'
 import { FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
 import { FileType } from '@/types'
 
@@ -55,12 +55,21 @@ const FilesCard = ({
                       )
                     })()
                   }
+                  {/* 下载按键 */}
                   {
                     file.status !== FILE_STATUS.sending && file.peerId !== peerId && (
                       <div
                         className="icon"
                         onClick={() => onclickDownloadFile(file)}>
                         <DownloadOutlined style={{ fontSize: 16 }} />
+                      </div>
+                    )
+                  }
+                  {/* 加载中icon */}
+                  {
+                    file.status === FILE_STATUS.sending && (
+                      <div className="icon">
+                        <LoadingOutlined style={{ fontSize: 16 }} />
                       </div>
                     )
                   }
