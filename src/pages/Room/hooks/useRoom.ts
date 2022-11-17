@@ -37,7 +37,17 @@ export function useRoom() {
       /* 连接另一个节点。并在连接成功后，触发一次添加文件事件，把自己有的文件发过去 */
       peer.current?.connectPeer(user.peerId, () => {
         setRoomFiles(files => {
-          peer.current?.sendDataToPeer(user.peerId, peerCallbackEnum.addFiles, files.filter(file => file.peerId === peer.current?.getPeerId()))
+          peer.current?.sendDataToPeer(
+            user.peerId,
+            peerCallbackEnum.addFiles,
+            files.filter(file => file.peerId === peer.current?.getPeerId())
+              .map(file => {
+                return {
+                  ...file,
+                  raw: null
+                }
+              })
+          )
           return files
         })
       })
@@ -62,21 +72,41 @@ export function useRoom() {
     setRoomFiles(files => {
       const bufferFile = files.find(item => item.id === file.id)
 
-      peer.current?.sendDataToPeer(peerId, peerCallbackEnum.resDownload, bufferFile)
+      const sendRes = peer.current?.sendDataToPeer(peerId, peerCallbackEnum.resDownload, bufferFile)
+
+      if (sendRes) {
+        updateFileStatus(file.id, FILE_STATUS.sending)
+      }
       return files
     })
-  }, [setRoomFiles])
+  }, [setRoomFiles, updateFileStatus])
 
   /**
    * 响应文件下载（接收文件流）
    * 文件流转成文件下载
    */
   const resDownloadCallback = useCallback((peerId: string, file: FileType) => {
-    setRoomFiles(files => files.map(item => item.id === file.id ? file : item))
-    downloadFile(file)
     console.log('收到下载数据', peerId, file)
+    // 记录缓存
+    setRoomFiles(files => files.map(item => item.id === file.id ? file : item))
+    // 下载该文件
+    downloadFile(file)
+    // 更新该文件的状态
     updateFileStatus(file.id, FILE_STATUS.leisure)
+    // 通知对方，下载完成
+    peer.current?.sendDataToPeer(peerId, peerCallbackEnum.downloadFinish, {
+      ...file,
+      raw: null
+    })
   }, [downloadFile, setRoomFiles, updateFileStatus])
+
+  /**
+   * 下载完成回调
+   */
+  const downLoadFinishCallback = useCallback((peerId: string, file: FileType) => {
+    console.log('对方下载已完成', peerId, file)
+    updateFileStatus(file.id, FILE_STATUS.leisure)
+  }, [updateFileStatus])
 
   /**
    * 下载错误
@@ -109,8 +139,9 @@ export function useRoom() {
     peer.current.registerCallback(peerCallbackEnum.reqDownload, reqDownloadCallback)
     peer.current.registerCallback(peerCallbackEnum.resDownload, resDownloadCallback)
     peer.current.registerCallback(peerCallbackEnum.downloadError, downloadErrorCallback)
+    peer.current.registerCallback(peerCallbackEnum.downloadFinish, downLoadFinishCallback)
     peer.current.registerCallback(peerCallbackEnum.linkFinish, () => setLinking(false)) // peer连接完成
-  }), [addFiles, downloadErrorCallback, reqDownloadCallback, resDownloadCallback])
+  }), [addFiles, downLoadFinishCallback, downloadErrorCallback, reqDownloadCallback, resDownloadCallback])
 
   /**
    * 加入房间，直接发送对应的socket信息

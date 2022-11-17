@@ -1,4 +1,4 @@
-import React, { Dispatch } from 'react'
+import React, { useMemo } from 'react'
 import { Card, Tag, Empty, Row, Col } from 'antd'
 import { DownloadOutlined, LoadingOutlined } from '@ant-design/icons'
 import { FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
@@ -15,11 +15,11 @@ interface Props {
 
 const FilesCard = ({
   files,
-  setFiles,
   peerId,
   onclickDownloadFile
 }:Props) => {
-  console.log(files)
+  const screenWidth = useMemo(() => document.body.clientWidth, [])
+
   return (
     <div>
       <Row
@@ -30,7 +30,7 @@ const FilesCard = ({
           files.map((file) => (
             <Col
               key={file.id}
-              span={12}
+              span={screenWidth < 700 ? 24 : 12}
             >
               <Card
                 type='inner'

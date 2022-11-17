@@ -95,7 +95,9 @@ export class PeerLink {
   connectPeer(peerId:string, openCb:() => void) {
     if (this.otherConn.has(peerId)) return
     console.log('开始连接节点:', peerId)
-    const conn = this.peer.connect(peerId)
+    const conn = this.peer.connect(peerId, {
+      reliable: true
+    })
 
     this.otherConn.set(peerId, conn)
 
@@ -147,12 +149,12 @@ export class PeerLink {
   sendDataToPeer(peerId:string, event:string, data:any) {
     if (this.otherConn.has(peerId)) {
       console.log('发送消息===', peerId, event, data)
-
       this.otherConn.get(peerId).send({
         event,
         peerId: this.peer.id,
         data
       })
+      console.log(this.otherConn.get(peerId).dataChannel)
       return true
     }
     return false
