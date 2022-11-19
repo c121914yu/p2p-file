@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
 import { Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { v4 } from 'uuid'
 import './index.scss'
 
 interface Props {
@@ -12,7 +13,7 @@ const CreateRoomModal = ({
 }: Props) => {
   const navigate = useNavigate()
   const onOk = useCallback(() => {
-    navigate(`/room/${ Date.now() }`)
+    navigate(`/room?myPeerId=${ v4() }`)
     onClose()
   }, [navigate, onClose])
 

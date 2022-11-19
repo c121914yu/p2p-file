@@ -5,11 +5,14 @@ import { FILE_STATUS, peerCallbackEnum } from '@/constants'
 import { FileType } from '@/types'
 import { copyData, formatSize } from '@/utils'
 import ChooseFile from '@/components/ChooseFile'
+import useRoute from '@/hooks/useRoute'
+import { v4 } from 'uuid'
 import FileItem from './components/FilesCard'
 import { useRoom } from './hooks/useRoom'
 import './index.scss'
 
 const Room = () => {
+  const { pathname } = useRoute()
 
   const {
     roomFiles,
@@ -48,8 +51,9 @@ const Room = () => {
   }, [peerId, setRoomFiles, roomFiles, sendDataToOtherPeers])
 
   const onclickShare = useCallback(() => {
-    copyData(location.href, '已复制房间连接，发送给朋友吧')
-  }, [])
+    // 拼上我自己的peerId，让对方知道初始化时连接谁
+    copyData(`${ location.origin }/#${ pathname }?connectId=${ peerId }&myPeerId=${ v4() }`, '已复制房间连接，发送给朋友吧')
+  }, [pathname, peerId])
 
   /* 加载动画 */
   useEffect(() => {

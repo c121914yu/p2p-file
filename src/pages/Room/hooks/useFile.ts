@@ -18,8 +18,8 @@ export function useFiles() {
   /**
    * 删除已经离线节点的文件
    */
-  const delDisconnectedFiles = useCallback((myPeerId?:string, otherConn?: Map<string, (peerId: string, data: any) => void>) => {
-    otherConn && setRoomFiles(files => files.filter(file => file.peerId === myPeerId || otherConn.has(file.peerId)))
+  const delDisconnectedFiles = useCallback((peerId:string) => {
+    setRoomFiles(files => files.filter(file => file.peerId !== peerId))
   }, [])
 
   /**
