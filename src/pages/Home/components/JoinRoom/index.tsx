@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { Input, Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { v4 } from 'uuid'
 import './index.scss'
 
 interface Props {
@@ -15,7 +16,7 @@ const JoinRoomModal = ({
 
   const onOk = useCallback(() => {
     if (!roomId) return
-    navigate(`/room/${ roomId }`)
+    navigate(`/room?myPeerId=${ v4() }&connectId=${ roomId }`)
     onClose()
   }, [roomId, navigate, onClose])
 
@@ -34,7 +35,7 @@ const JoinRoomModal = ({
       </h3>
       <Input
         value={roomId}
-        placeholder='请输入房间ID'
+        placeholder='请输入对方的ID'
         onChange={(e) => setRoomId(e.target.value)}
       />
     </Modal>

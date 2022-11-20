@@ -11,6 +11,7 @@ export function useRoom() {
   const { connectId, myPeerId } = useRoute()
   const peer = useRef<PeerLink>()
   const [linkingNum, setLinkingNum] = useState(0)
+  const [linkedNum, setLinkedNum] = useState(1)
   const [refresh, setFresh] = useState(0)
 
   const {
@@ -41,6 +42,7 @@ export function useRoom() {
    */
   const otherOpened = useCallback((peerId:string) => {
     setLinkingNum(state => state - 1)
+    setLinkedNum(state => state + 1)
     // 向对方发送我的附件信息
     setRoomFiles(files => {
       files.length > 0 && peer.current?.sendDataToPeer(
@@ -64,6 +66,7 @@ export function useRoom() {
   const userLeaveRoom = useCallback((peerId:string) => {
     if (!peer.current) return
     console.log('有用户离开房间，清除它的文件')
+    setLinkedNum(state => state - 1)
     // 删除该节点相关的文件
     delDisconnectedFiles(peerId)
   }, [delDisconnectedFiles])
@@ -195,6 +198,7 @@ export function useRoom() {
     peer,
     refresh,
     setFresh,
-    onclickDownloadFile
+    onclickDownloadFile,
+    linkedNum
   }
 }

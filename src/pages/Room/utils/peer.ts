@@ -119,6 +119,7 @@ export class PeerLink {
    * 获取发送消息的conn
    */
   getSendDataPeerConn(peerId: string) {
+    if (!this.getCanSendConnections()[ peerId ]) return
     return this.getCanSendConnections()[ peerId ].find(conn => !conn.options?.connectionId)
   }
 

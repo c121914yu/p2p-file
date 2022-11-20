@@ -7,8 +7,9 @@ import { copyData, formatSize } from '@/utils'
 import ChooseFile from '@/components/ChooseFile'
 import useRoute from '@/hooks/useRoute'
 import { v4 } from 'uuid'
-import FileItem from './components/FilesCard'
 import { useRoom } from './hooks/useRoom'
+import FileItem from './components/FilesCard'
+import RoomHeader from './components/Header'
 import './index.scss'
 
 const Room = () => {
@@ -20,7 +21,8 @@ const Room = () => {
     peerId,
     sendDataToOtherPeers,
     linkingNum,
-    onclickDownloadFile
+    onclickDownloadFile,
+    linkedNum
   } = useRoom()
 
   const canAdd = useMemo(() => !!peerId && linkingNum <= 0, [linkingNum, peerId])
@@ -192,6 +194,9 @@ const Room = () => {
           />
         </ChooseFile>
       </div>
+      <RoomHeader
+        peerId={peerId}
+        peerNum={linkedNum} />
       <FileItem
         files={roomFiles}
         setFiles={selectFiles}
