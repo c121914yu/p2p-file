@@ -1,15 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { FileType } from '@/types'
-import { peerCallbackEnum, FILE_STATUS } from '@/constants'
+import { roomPeerCallback, FILE_STATUS } from '@/constants'
 import { $warning } from '@/utils'
 import useRoute from '@/hooks/useRoute'
+import { peerCallbackEnum } from '../utils/peer.constants'
 import { PeerLink } from '../utils/peer'
 import { useFiles } from './useFile'
 
 export function useRoom() {
   const { connectId, myPeerId } = useRoute()
   const peer = useRef<PeerLink>()
-  const [linking, setLinking] = useState(false)
+  const [linkingNum, setLinkingNum] = useState(0)
   const [refresh, setFresh] = useState(0)
 
   const {
@@ -22,15 +23,29 @@ export function useRoom() {
   } = useFiles()
 
   /**
+   * 我的节点已打开
+   */
+  const myPeerOpened = useCallback(() => {
+    // 如果存在connectId，则触发节点连接
+    if (connectId) {
+      peer.current?.connectPeer(connectId)
+    }
+  }, [connectId])
+
+  const linkPeer = useCallback(() => {
+    setLinkingNum(state => state + 1)
+  }, [])
+
+  /**
    * 对方节点已打开
    */
   const otherOpened = useCallback((peerId:string) => {
-    setLinking(false)
+    setLinkingNum(state => state - 1)
     // 向对方发送我的附件信息
     setRoomFiles(files => {
       files.length > 0 && peer.current?.sendDataToPeer(
         peerId,
-        peerCallbackEnum.addFiles,
+        roomPeerCallback.addFiles,
         files.filter(file => file.peerId === peer.current?.getPeerId())
           .map(file => {
             return {
@@ -61,7 +76,7 @@ export function useRoom() {
     setRoomFiles(files => {
       const bufferFile = files.find(item => item.id === file.id)
 
-      const sendRes = peer.current?.sendDataToPeer(peerId, peerCallbackEnum.resDownload, bufferFile)
+      const sendRes = peer.current?.sendDataToPeer(peerId, roomPeerCallback.resDownload, bufferFile)
 
       if (sendRes) {
         updateFileStatus(file.id, FILE_STATUS.sending)
@@ -83,7 +98,7 @@ export function useRoom() {
     // 更新该文件的状态
     updateFileStatus(file.id, FILE_STATUS.leisure)
     // 通知对方，下载完成
-    peer.current?.sendDataToPeer(peerId, peerCallbackEnum.downloadFinish, {
+    peer.current?.sendDataToPeer(peerId, roomPeerCallback.downloadFinish, {
       ...file,
       raw: null
     })
@@ -98,45 +113,38 @@ export function useRoom() {
   }, [updateFileStatus])
 
   /**
-   * 下载错误
-   * 所有文件变成error态
+   * 连接出现错误，删除对应peerId的文件
    */
-  const downloadErrorCallback = useCallback(() => {
-    roomFiles.forEach(file => {
-      updateFileStatus(file.id, FILE_STATUS.error)
-    })
-  }, [roomFiles, updateFileStatus])
+  const connectionError = useCallback((peerId: string) => {
+    setLinkingNum(state => state - 1)
+    userLeaveRoom(peerId)
+  }, [userLeaveRoom])
 
   /**
    * 初始化节点
    */
-  const initPeer = useCallback(() => new Promise<PeerLink>(resolve => {
+  const initPeer = useCallback(() => {
     peer.current = new PeerLink({
-      myPeerId,
-      openedCb: (peer: PeerLink) => {
-        // 如果存在connectId，则触发节点连接
-        if (connectId) {
-          peer.connectPeer(connectId)
-        }
-        resolve(peer)
-      }
+      myPeerId
     })
-  }), [myPeerId, connectId])
+  }, [myPeerId])
 
   const initRoom = useCallback(async() => {
     // 初始化本机peer
-    const peer = await initPeer()
+    initPeer()
 
     // 注册回调事件
-    peer.registerCallback(peerCallbackEnum.otherOpened, otherOpened) // 对方节点已打开，说明连接完成
-    peer.registerCallback(peerCallbackEnum.addFiles, addFiles)
-    peer.registerCallback(peerCallbackEnum.peerDisconnect, userLeaveRoom)
-    peer.registerCallback(peerCallbackEnum.reqDownload, reqDownloadCallback)
-    peer.registerCallback(peerCallbackEnum.resDownload, resDownloadCallback)
-    peer.registerCallback(peerCallbackEnum.downloadError, downloadErrorCallback)
-    peer.registerCallback(peerCallbackEnum.downloadFinish, downLoadFinishCallback)
+    peer.current?.registerCallback(peerCallbackEnum.openedPeer, myPeerOpened) // 我的节点已打开
+    peer.current?.registerCallback(peerCallbackEnum.linkPeer, linkPeer) // 连接某个节点
+    peer.current?.registerCallback(peerCallbackEnum.otherOpened, otherOpened) // 对方节点已打开，说明连接完成
+    peer.current?.registerCallback(peerCallbackEnum.aPeerDisconnected, userLeaveRoom) // 有一个节点离开房间
+    peer.current?.registerCallback(peerCallbackEnum.connectionError, connectionError) // 连接发生错误
+    peer.current?.registerCallback(roomPeerCallback.addFiles, addFiles) // 添加文件
+    peer.current?.registerCallback(roomPeerCallback.reqDownload, reqDownloadCallback) // 请求下载文件
+    peer.current?.registerCallback(roomPeerCallback.resDownload, resDownloadCallback) // 响应下载文件
+    peer.current?.registerCallback(roomPeerCallback.downloadFinish, downLoadFinishCallback) // 下载完成
     setFresh(state => state + 1)
-  }, [initPeer, otherOpened, addFiles, userLeaveRoom, reqDownloadCallback, resDownloadCallback, downloadErrorCallback, downLoadFinishCallback])
+  }, [initPeer, myPeerOpened, linkPeer, otherOpened, userLeaveRoom, connectionError, addFiles, reqDownloadCallback, resDownloadCallback, downLoadFinishCallback])
 
   /**
    * 点击下载文件
@@ -152,15 +160,15 @@ export function useRoom() {
       downloadFile(file)
       return
     }
-    const sendRes = peer.current?.sendDataToPeer(file.peerId, peerCallbackEnum.reqDownload, file)
+    const sendRes = peer.current?.sendDataToPeer(file.peerId, roomPeerCallback.reqDownload, file)
 
     if (sendRes) { // 消息发送出去了
       updateFileStatus(file.id, FILE_STATUS.sending)
     } else { // 消息没发送出去
       $warning('该节点已经退出房间')
-      delDisconnectedFiles(file.peerId)
+      userLeaveRoom(file.peerId)
     }
-  }, [delDisconnectedFiles, downloadFile, updateFileStatus])
+  }, [downloadFile, updateFileStatus, userLeaveRoom])
 
   useEffect(() => {
     initRoom()
@@ -181,7 +189,7 @@ export function useRoom() {
   return {
     roomFiles,
     setRoomFiles,
-    linking,
+    linkingNum,
     sendDataToOtherPeers: (event:string, data:any) => { peer.current?.sendDataToOtherPeers(event, data) },
     peerId: peer.current?.getPeerId(),
     peer,

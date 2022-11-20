@@ -1,7 +1,6 @@
-import { peerCallbackEnum } from '@/constants'
+import { peerCallbackEnum } from './peer.constants'
 interface Props {
   myPeerId?: string
-  openedCb: (peer:PeerLink) => void
 }
 export class PeerLink {
   private peer: any
@@ -11,7 +10,6 @@ export class PeerLink {
 
   constructor({
     myPeerId,
-    openedCb
   }: Props) {
     // @ts-ignore-nextLine
     this.peer = new Peer(myPeerId)
@@ -21,8 +19,8 @@ export class PeerLink {
     this.registerCallback(peerCallbackEnum.connections, (peerId: string, peers: string[]) => {
       peers.forEach(peer => this.connectPeer(peer))
     })
-    // 监听到有一个节点关闭，关闭和它的连接
-    this.registerCallback(peerCallbackEnum.peerDisconnect, (peerId:string) => {
+    // 有一个节点关闭，关闭和它的连接
+    this.registerCallback(peerCallbackEnum.aPeerDisconnected, (peerId:string) => {
       this.getSendDataPeerConn(peerId).close()
     })
 
@@ -31,7 +29,7 @@ export class PeerLink {
      */
     this.peer.on('open', (id:string) => {
       console.log('个人节点获取成功', id)
-      openedCb(this)
+      this.runCallback(peerCallbackEnum.openedPeer, '', this)
     })
 
     /**
@@ -41,8 +39,8 @@ export class PeerLink {
     this.peer.on('connection', (conn:any) => {
       console.log(`有新的节点连入`)
 
-      /* 判断下这个节点，我是否已经和他连接了 */
-      if (!this.peerIsConnected(conn.peer)) {
+      /* 判断下这个节点，我是否已经和他连接了.如果没有连接，则和它进行连接 */
+      if (!this.peerCanSended(conn.peer)) {
         this.connectPeer(conn.peer)
       }
 
@@ -60,6 +58,7 @@ export class PeerLink {
      */
     this.peer.on('error', (e) => {
       console.log('peer连接出错了', e)
+      this.runCallback(peerCallbackEnum.peerError)
     })
 
     /**
@@ -67,6 +66,7 @@ export class PeerLink {
      */
     this.peer.on('disconnected', () => {
       console.log('我断开连接了')
+      this.runCallback(peerCallbackEnum.iDisconnected)
     })
 
     /**
@@ -74,14 +74,15 @@ export class PeerLink {
      */
     this.peer.on('close', () => {
       console.log('我自己销毁了')
+      this.runCallback(peerCallbackEnum.iClosed)
     })
   }
 
   /**
-   * 销毁节点.同时关闭所有连接
+   * 销毁节点.同时告诉其他节点，我退出了
    */
   iDestroy() {
-    this.sendDataToOtherPeers(peerCallbackEnum.peerDisconnect)
+    this.sendDataToOtherPeers(peerCallbackEnum.aPeerDisconnected)
     setTimeout(() => {
       this.peer.destroy()
     }, 100)
@@ -92,19 +93,22 @@ export class PeerLink {
   }
 
   /**
-   * 判断某个节点是否还连接
+   * 判断某个节点是否可以发送消息
    */
-  peerIsConnected(peerId:string) {
+  peerCanSended(peerId:string) {
     const connItem = this.peer.connections[ peerId ]
 
     return connItem && connItem.find(conn => !conn.options?.connectionId)
   }
 
-  getConnections() {
+  /**
+   * 获取可以发送消息的节点
+   */
+  getCanSendConnections() {
     const res = {}
 
     for (const peerId in this.peer.connections) {
-      if (this.peerIsConnected(peerId)) {
+      if (this.peerCanSended(peerId)) {
         res[ peerId ] = this.peer.connections[ peerId ]
       }
     }
@@ -115,7 +119,7 @@ export class PeerLink {
    * 获取发送消息的conn
    */
   getSendDataPeerConn(peerId: string) {
-    return this.getConnections()[ peerId ].find(conn => !conn.options?.connectionId)
+    return this.getCanSendConnections()[ peerId ].find(conn => !conn.options?.connectionId)
   }
 
   /**
@@ -123,8 +127,9 @@ export class PeerLink {
    * @param {string} peerId 需要连接的节点
    */
   connectPeer(peerId:string) {
-    if (this.peerIsConnected(peerId)) return
+    if (this.peerCanSended(peerId)) return
     console.log('开始连接节点:', peerId)
+    this.runCallback(peerCallbackEnum.linkPeer, peerId)
 
     // conn为我连接对方的节点
     const conn = this.peer.connect(peerId, {
@@ -132,21 +137,22 @@ export class PeerLink {
     })
 
     conn.on('open', () => {
-      console.log('对方节点已打开，可以发送消息了===', this.getConnections())
+      console.log('对方节点已打开，可以发送消息了===', this.getCanSendConnections())
       this.runCallback(peerCallbackEnum.otherOpened, peerId)
+
       // 告诉对方，我连接的其他节点
       const peers:string[] = []
 
-      for (const id in this.getConnections()) {
+      for (const id in this.getCanSendConnections()) {
         // 不是打开的节点，且连接正常的其他节点
-        if (id !== peerId && this.peerIsConnected(id)) {
+        if (id !== peerId && this.peerCanSended(id)) {
           peers.push(id)
         }
       }
       peers.length > 0 && this.sendDataToPeer(peerId, peerCallbackEnum.connections, peers)
     })
     conn.on('error', (e) => {
-      this.runCallback(peerCallbackEnum.downloadError)
+      this.runCallback(peerCallbackEnum.connectionError, peerId)
       console.log('点对点通信出错===', e)
     })
     conn.on('close', () => {
@@ -157,21 +163,21 @@ export class PeerLink {
   /**
    * 注册回调函数
    */
-  registerCallback(key:`${ peerCallbackEnum }`, cb:(peerId:string, data: any) => void) {
+  registerCallback(key: string, cb:(peerId:string, data: any) => void) {
     if (!this.callbackMap.has(key)) {
       this.callbackMap.set(key, [])
     }
     this.callbackMap.get(key)?.push(cb)
   }
 
-  unregisterCallback(key:`${ peerCallbackEnum }`) {
+  unregisterCallback(key:string) {
     this.callbackMap.delete(key)
   }
 
   /**
    * 执行回调
    */
-  runCallback(key:`${ peerCallbackEnum }`, peerId?:string, data?:any) {
+  runCallback(key:string, peerId?:string, data?:any) {
     if (this.callbackMap.has(key)) {
       // @ts-ignore-nextLine
       this.callbackMap.get(key)?.forEach(cb => cb(peerId, data))
@@ -182,7 +188,7 @@ export class PeerLink {
    * 向所有连接的节点发送信息
    */
   sendDataToOtherPeers(event: string, data?:any) {
-    for (const peerId in this.getConnections()) {
+    for (const peerId in this.getCanSendConnections()) {
       this.sendDataToPeer(peerId, event, data)
     }
   }
@@ -191,7 +197,7 @@ export class PeerLink {
    * 向某个节点发送消息
    */
   sendDataToPeer(peerId:string, event:string, data?:any) {
-    if (this.peerIsConnected(peerId)) {
+    if (this.peerCanSended(peerId)) {
       console.log('发送消息===', peerId, event, data)
       this.getSendDataPeerConn(peerId).send({
         event,

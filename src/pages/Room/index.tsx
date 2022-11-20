@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useMemo } from 'react'
 import { Button } from 'antd'
 import { PlusOutlined, ShareAltOutlined } from '@ant-design/icons'
-import { FILE_STATUS, peerCallbackEnum } from '@/constants'
+import { FILE_STATUS, roomPeerCallback } from '@/constants'
 import { FileType } from '@/types'
 import { copyData, formatSize } from '@/utils'
 import ChooseFile from '@/components/ChooseFile'
@@ -19,11 +19,11 @@ const Room = () => {
     setRoomFiles,
     peerId,
     sendDataToOtherPeers,
-    linking,
+    linkingNum,
     onclickDownloadFile
   } = useRoom()
 
-  const canAdd = useMemo(() => !!peerId && !linking, [linking, peerId])
+  const canAdd = useMemo(() => !!peerId && linkingNum <= 0, [linkingNum, peerId])
 
   /**
    * 选择文件，更新本地文件，并通知其他用户更新
@@ -42,7 +42,7 @@ const Room = () => {
     })
 
     setRoomFiles([...newFiles, ...roomFiles])
-    sendDataToOtherPeers(peerCallbackEnum[ 'addFiles' ], newFiles.map(file => {
+    sendDataToOtherPeers(roomPeerCallback.addFiles, newFiles.map(file => {
       return {
         ...file,
         raw: null
@@ -52,7 +52,7 @@ const Room = () => {
 
   const onclickShare = useCallback(() => {
     // 拼上我自己的peerId，让对方知道初始化时连接谁
-    copyData(`${ location.origin }/#${ pathname }?connectId=${ peerId }&myPeerId=${ v4() }`, '已复制房间连接，发送给朋友吧')
+    copyData(`${ location.origin }${ location.pathname }#${ pathname }?connectId=${ peerId }&myPeerId=${ v4() }`, '已复制房间连接，发送给朋友吧')
   }, [pathname, peerId])
 
   /* 加载动画 */
@@ -170,6 +170,15 @@ const Room = () => {
         id='animation'
         className="animation"
       />
+      <div className="btn share-btn">
+        <Button
+          size='large'
+          shape='circle'
+          onClick={onclickShare}
+          disabled={!peerId}
+          icon={<ShareAltOutlined />}
+        />
+      </div>
       <div className="btn add-btn">
         <ChooseFile
           disabled={!canAdd}
@@ -182,14 +191,6 @@ const Room = () => {
             icon={<PlusOutlined />}
           />
         </ChooseFile>
-      </div>
-      <div className="btn share-btn">
-        <Button
-          size='large'
-          shape='circle'
-          onClick={onclickShare}
-          icon={<ShareAltOutlined />}
-        />
       </div>
       <FileItem
         files={roomFiles}
