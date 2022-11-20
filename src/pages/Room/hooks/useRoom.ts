@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { FileType } from '@/types'
+import { useNavigate } from 'react-router-dom'
 import { roomPeerCallback, FILE_STATUS } from '@/constants'
 import { $warning } from '@/utils'
 import useRoute from '@/hooks/useRoute'
@@ -8,7 +9,8 @@ import { PeerLink } from '../utils/peer'
 import { useFiles } from './useFile'
 
 export function useRoom() {
-  const { connectId, myPeerId } = useRoute()
+  const { connectId, myPeerId, pathname } = useRoute()
+  const navigate = useNavigate()
   const peer = useRef<PeerLink>()
   const [linkingNum, setLinkingNum] = useState(0)
   const [linkedNum, setLinkedNum] = useState(1)
@@ -43,6 +45,7 @@ export function useRoom() {
   const otherOpened = useCallback((peerId:string) => {
     setLinkingNum(state => state - 1)
     setLinkedNum(state => state + 1)
+    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ peerId }`, { replace: true })
     // 向对方发送我的附件信息
     setRoomFiles(files => {
       files.length > 0 && peer.current?.sendDataToPeer(
@@ -58,7 +61,7 @@ export function useRoom() {
       )
       return files
     })
-  }, [setRoomFiles])
+  }, [myPeerId, navigate, pathname, setRoomFiles])
 
   /**
    * 用户离开，删除离开用户的缓存
@@ -67,6 +70,12 @@ export function useRoom() {
     if (!peer.current) return
     console.log('有用户离开房间，清除它的文件')
     setLinkedNum(state => state - 1)
+    // 替换成目前在连接的节点
+    const connPeer = peer.current.getCanSendConnections()
+    const id = Object.keys(connPeer)[ 0 ]
+
+    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ id }`, { replace: true })
+
     // 删除该节点相关的文件
     delDisconnectedFiles(peerId)
   }, [delDisconnectedFiles])
