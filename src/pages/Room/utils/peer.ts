@@ -1,4 +1,6 @@
 import { peerCallbackEnum } from './peer.constants'
+import { TransferItemType } from './peer.d'
+import { v4 } from 'uuid'
 interface Props {
   myPeerId?: string
 }
@@ -7,6 +9,21 @@ export class PeerLink {
 
   // eslint-disable-next-line no-unused-vars, func-call-spacing
   private callbackMap = new Map<string, (peerId:string, data: any) => void>()
+
+  // 等待发送队列
+  private transferQueue:TransferItemType[] = []
+
+  // 发送中队列
+  private transferringQueue:TransferItemType[] = []
+
+  // 最大发送数量
+  private maxTransferNum = 5
+
+  // 超时时间（秒）
+  private timeoutVal = 30
+
+  // 发送轮询定时器
+  private transferTimer:any = null
 
   constructor({
     myPeerId,
@@ -22,6 +39,10 @@ export class PeerLink {
     // 有一个节点关闭，关闭和它的连接
     this.registerCallback(peerCallbackEnum.aPeerClose, (peerId:string) => {
       this.getSendDataPeerConn(peerId).close()
+    })
+    // 分段传输回调
+    this.registerCallback(peerCallbackEnum.transferCb, (peerId:string, transferId: string) => {
+      this.transferCb(transferId)
     })
 
     /**
@@ -50,6 +71,10 @@ export class PeerLink {
       conn.on('data', (e:any) => {
         console.log('收到一条信息====', e)
         this.runCallback(e.event, e.peerId, e.data)
+        // 看有没有transferId， 如果有的话说明是通过队列传输的
+        if (e.data?.transferId) {
+          this.sendDataToPeer(conn.peer, peerCallbackEnum.transferCb, e.data.transferId)
+        }
       })
     })
 
@@ -205,6 +230,118 @@ export class PeerLink {
       })
       return true
     }
+    return false
+  }
+
+  /**
+   * 获取待发送队列
+   */
+  getTransferQueue() {
+    return this.transferQueue
+  }
+
+  /**
+   * 添加等待发送的内容
+   */
+  pushTransferFn({ peerId, event, data }:{peerId: string, event:string, data:any}) {
+    this.transferQueue.push({
+      id: v4(),
+      countDown: this.timeoutVal,
+      isReSend: false,
+      peerId,
+      event,
+      data
+    })
+  }
+
+  /**
+   * 执行发送. 选择最多maxTransferNum个数据进行发送
+   */
+  runTransfer() {
+    if (this.transferTimer) return // 运行中，不需要再执行
+    for (let i = 0; i < this.maxTransferNum; i++) {
+      const item = this.transferQueue.shift()
+
+      if (item) {
+        this.transferringQueue.push(item)
+      }
+    }
+    this.transferringQueue.forEach(item => {
+      this.sendDataToPeer(item.peerId, item.event, {
+        transferId: item.id,
+        data: item.data
+      })
+    })
+    // 每秒检查一次发送情况
+    this.transferTimer = setInterval(() => this.checkTransfer(), 1000)
+  }
+
+  /**
+   * 停止发送
+   */
+  stopTransfer(peerId:string) {
+    console.log('发生异常，结束传输')
+    clearInterval(this.transferTimer)
+    this.transferQueue = []
+    this.transferringQueue = []
+    this.runCallback(peerCallbackEnum.transferError, peerId)
+  }
+
+  /**
+   * 检查传输完成
+   */
+  checkTransferFinish() {
+    if (this.transferringQueue.length === 0) {
+      console.log('分段发送全部结束==')
+      clearInterval(this.transferTimer)
+    }
+  }
+
+  /**
+   * 检查发送的内容是否超时
+   */
+  checkTransfer() {
+    // 每个发送块的倒计时减去1
+    for (let i = 0; i < this.transferringQueue.length; i++) {
+      const item = this.transferringQueue[ i ]
+
+      item.countDown--
+      if (item.countDown <= 0) {
+        if (item.isReSend) { // 已经重发过，直接提示传输错误
+          this.stopTransfer(item.peerId)
+          return
+        } else { // 重发一次
+          item.isReSend = true
+          this.sendDataToPeer(item.peerId, item.event, {
+            transferId: item.id,
+            data: item.data
+          })
+        }
+      }
+    }
+    this.checkTransferFinish()
+  }
+
+  /**
+   * 收到传输回调
+   * 找到对应发送的内容，从发送中去掉
+   * 并判断有没有下个需要发送的内容，有的话就去发送
+   */
+  transferCb(id: string) {
+    const index = this.transferringQueue.findIndex(item => item.id === id)
+
+    this.transferringQueue.splice(index, 1)
+    const item = this.transferQueue.shift()
+
+    if (item) {
+      this.transferringQueue.push(item)
+      this.sendDataToPeer(item.peerId, item.event, {
+        transferId: item.id,
+        data: item.data
+      })
+      return true
+    }
+    this.checkTransferFinish()
     return false
   }
 }

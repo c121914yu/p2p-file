@@ -37,6 +37,7 @@ export function useRoom() {
   }, [connectId])
 
   const linkPeer = useCallback(() => {
+    setLinkedNum(state => state + 1)
     setLinkingNum(state => state + 1)
   }, [])
 
@@ -45,7 +46,6 @@ export function useRoom() {
    */
   const otherOpened = useCallback((peerId:string) => {
     setLinkingNum(state => state - 1)
-    setLinkedNum(state => state + 1)
     navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ peerId || '' }`, { replace: true })
     // 向对方发送我的附件信息
     roomFiles.length > 0 && peer.current?.sendDataToPeer(
@@ -82,20 +82,25 @@ export function useRoom() {
    * 请求下载回调（收到请求下载）
    * 把文件流发给对应的节点
    */
-  const reqDownloadCallback = useCallback((peerId:string, file: FileType, index = 0) => {
+  const reqDownloadCallback = useCallback((peerId:string, file: FileType) => {
     const bufferFile = roomFiles.find(item => item.id === file.id)
 
     /* 只发对应下标的raw过去 */
     if (bufferFile) {
-      const sendRes = peer.current?.sendDataToPeer(peerId, roomPeerCallback.resDownload, {
-        fileId: file.id,
-        index,
-        raw: bufferFile.raw[ index ]
-      })
-
-      if (sendRes) {
-        updateFileStatus(file.id, FILE_STATUS.sending)
+      for (let i = 0; i < bufferFile.raw.length; i++) {
+        peer.current?.pushTransferFn({
+          peerId,
+          event: roomPeerCallback.resDownload,
+          data: {
+            fileId: file.id,
+            index: i,
+            raw: bufferFile.raw[ i ]
+          }
+        })
       }
+      console.log(peer.current?.getTransferQueue())
+      peer.current?.runTransfer()
+      updateFileStatus(file.id, FILE_STATUS.sending)
     }
   }, [roomFiles, updateFileStatus])
 
@@ -103,14 +108,15 @@ export function useRoom() {
    * 响应文件下载（接收文件流）
    * 文件流转成文件下载
    */
-  const resDownloadCallback = useCallback((peerId: string, file: TransferType) => {
+  const resDownloadCallback = useCallback((peerId: string, { data: file }: {data:TransferType}) => {
     console.log('收到下载数据', peerId, file)
     // 记录缓存
     setRoomFiles(files => files.map(item => {
       if (item.id === file.fileId) {
         const raw = item.raw.concat(file.raw)
         const newFile = {
-          ...item, raw
+          ...item,
+          raw
         }
 
         // 判断raw是否已经接受完成
@@ -119,16 +125,16 @@ export function useRoom() {
           downloadFile(newFile)
           // 更新该文件的状态
           updateFileStatus(file.fileId, FILE_STATUS.leisure)
+          // 通知对方，下载完成
+          peer.current?.sendDataToPeer(peerId, roomPeerCallback.downloadFinish, {
+            fileId: file.fileId,
+            index: file.index
+          })
         }
         return newFile
       }
       return item
     }))
-    // 通知对方，下载完成
-    peer.current?.sendDataToPeer(peerId, roomPeerCallback.downloadFinish, {
-      fileId: file.fileId,
-      index: file.index
-    })
     setFresh(state => state + 1)
   }, [downloadFile, setRoomFiles, updateFileStatus])
 
@@ -137,14 +143,8 @@ export function useRoom() {
    */
   const downLoadFinishCallback = useCallback((peerId: string, file: TransferType) => {
     console.log('对方下载已完成', peerId, file)
-    const fileItem = roomFiles.find(item => item.id === file.fileId)
-
-    if (fileItem && fileItem.raw[ file.index + 1 ]) {
-      reqDownloadCallback(peerId, fileItem, file.index + 1)
-    } else {
-      updateFileStatus(file.fileId, FILE_STATUS.leisure)
-    }
-  }, [reqDownloadCallback, roomFiles, updateFileStatus])
+    updateFileStatus(file.fileId, FILE_STATUS.leisure)
+  }, [updateFileStatus])
 
   /**
    * 连接出现错误，删除对应peerId的文件
@@ -152,7 +152,8 @@ export function useRoom() {
   const connectionError = useCallback((peerId: string) => {
     setLinkingNum(state => state - 1)
     userLeaveRoom(peerId)
-  }, [userLeaveRoom])
+    roomFiles.forEach(item => updateFileStatus(item.id, FILE_STATUS.leisure))
+  }, [roomFiles, updateFileStatus, userLeaveRoom])
 
   const initRoom = useCallback(async() => {
     // 初始化本机peer
@@ -210,6 +211,7 @@ export function useRoom() {
     peer.current?.registerCallback(peerCallbackEnum.aPeerDisconnected, userLeaveRoom) // 有一个节点离开房间
     peer.current?.registerCallback(peerCallbackEnum.connectionError, connectionError) // 连接发生错误
     peer.current?.registerCallback(peerCallbackEnum.peerError, connectionError) // 连接发生错误
+    peer.current?.registerCallback(peerCallbackEnum.transferError, connectionError) // 连接发生错误
     peer.current?.registerCallback(roomPeerCallback.addFiles, addFiles) // 添加文件
     peer.current?.registerCallback(roomPeerCallback.reqDownload, reqDownloadCallback) // 请求下载文件
     peer.current?.registerCallback(roomPeerCallback.resDownload, resDownloadCallback) // 响应下载文件
