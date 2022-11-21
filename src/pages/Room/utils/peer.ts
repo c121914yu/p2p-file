@@ -6,7 +6,7 @@ export class PeerLink {
   private peer: any
 
   // eslint-disable-next-line no-unused-vars, func-call-spacing
-  private callbackMap = new Map<string, ((peerId:string, data: any) => void)[]>()
+  private callbackMap = new Map<string, (peerId:string, data: any) => void>()
 
   constructor({
     myPeerId,
@@ -20,7 +20,7 @@ export class PeerLink {
       peers.forEach(peer => this.connectPeer(peer))
     })
     // 有一个节点关闭，关闭和它的连接
-    this.registerCallback(peerCallbackEnum.aPeerDisconnected, (peerId:string) => {
+    this.registerCallback(peerCallbackEnum.aPeerClose, (peerId:string) => {
       this.getSendDataPeerConn(peerId).close()
     })
 
@@ -83,6 +83,7 @@ export class PeerLink {
    */
   iDestroy() {
     this.sendDataToOtherPeers(peerCallbackEnum.aPeerDisconnected)
+    this.sendDataToOtherPeers(peerCallbackEnum.aPeerClose)
     setTimeout(() => {
       this.peer.destroy()
     }, 100)
@@ -165,10 +166,7 @@ export class PeerLink {
    * 注册回调函数
    */
   registerCallback(key: string, cb:(peerId:string, data: any) => void) {
-    if (!this.callbackMap.has(key)) {
-      this.callbackMap.set(key, [])
-    }
-    this.callbackMap.get(key)?.push(cb)
+    this.callbackMap.set(key, cb)
   }
 
   unregisterCallback(key:string) {
@@ -181,7 +179,7 @@ export class PeerLink {
   runCallback(key:string, peerId?:string, data?:any) {
     if (this.callbackMap.has(key)) {
       // @ts-ignore-nextLine
-      this.callbackMap.get(key)?.forEach(cb => cb(peerId, data))
+      this.callbackMap.get(key)(peerId, data)
     }
   }
 

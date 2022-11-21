@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { FileType } from '@/types'
+import { FileType, FileBlobItem } from '@/types'
 import { FILE_STATUS } from '@/constants'
 
 export function useFiles() {
@@ -38,9 +38,11 @@ export function useFiles() {
    * 根据二进制流，下载某个文件
    */
   const downloadFile = useCallback((file:FileType) => {
-    if (!file.raw) return
+    file.raw.sort((a, b) => a.index - b.index)
+    const blobs = file.raw.map(item => item.blob)
+    const compBlobs = blobs.flat()
 
-    const url = window.URL.createObjectURL(new Blob([file.raw], { type: 'arraybuffer' }))
+    const url = window.URL.createObjectURL(new Blob(compBlobs, { type: 'arraybuffer' }))
     const link = document.createElement('a')
 
     link.style.display = 'none'

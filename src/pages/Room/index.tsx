@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useMemo } from 'react'
 import { Button } from 'antd'
 import { PlusOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { FILE_STATUS, roomPeerCallback } from '@/constants'
-import { FileType } from '@/types'
+import { FileType, FileBlobItem } from '@/types'
 import { copyData, formatSize } from '@/utils'
 import ChooseFile from '@/components/ChooseFile'
 import useRoute from '@/hooks/useRoute'
@@ -28,29 +28,57 @@ const Room = () => {
   const canAdd = useMemo(() => !!peerId && linkingNum <= 0, [linkingNum, peerId])
 
   /**
+   * 切割文件
+   */
+  const splitFile = useCallback((file:File) => {
+    const size = 1 * 1024 * 1024 // 1M
+
+    if (file.size <= size) {
+      return [{
+        index: 0,
+        blob: file.slice(0, file.size)
+      }]
+    }
+    const splitRes:FileBlobItem[] = []
+
+    for (let start = 0; start < file.size; start += size) {
+      const end = start + size > file.size ? file.size : start + size
+
+      splitRes.push({
+        index: splitRes.length,
+        blob: file.slice(start, end)
+      })
+    }
+    return splitRes
+  }, [])
+
+  /**
    * 选择文件，更新本地文件，并通知其他用户更新
    */
   const selectFiles = useCallback(async(files:File[] | FileType[]) => {
     if (!peerId) return
+
     const newFiles = files.map((file, i:number) => {
       return {
         id: `${ Date.now() }-${ i }`,
         name: file.name,
-        size: formatSize(file.size),
+        size: file.size,
+        formatSize: formatSize(file.size),
         status: FILE_STATUS.leisure,
-        raw: file,
+        raw: splitFile(file),
         peerId
       }
     })
 
+    console.log(newFiles)
     setRoomFiles([...newFiles, ...roomFiles])
     sendDataToOtherPeers(roomPeerCallback.addFiles, newFiles.map(file => {
       return {
         ...file,
-        raw: null
+        raw: []
       }
     }))
-  }, [peerId, setRoomFiles, roomFiles, sendDataToOtherPeers])
+  }, [peerId, setRoomFiles, roomFiles, sendDataToOtherPeers, splitFile])
 
   const onclickShare = useCallback(() => {
     // 拼上我自己的peerId，让对方知道初始化时连接谁

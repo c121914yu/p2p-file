@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { FileType } from '@/types'
+import { FileType, TransferType } from '@/types'
 import { useNavigate } from 'react-router-dom'
 import { roomPeerCallback, FILE_STATUS } from '@/constants'
 import { $warning } from '@/utils'
@@ -7,6 +7,7 @@ import useRoute from '@/hooks/useRoute'
 import { peerCallbackEnum } from '../utils/peer.constants'
 import { PeerLink } from '../utils/peer'
 import { useFiles } from './useFile'
+import { fileChunkNum } from '../utils/index'
 
 export function useRoom() {
   const { connectId, myPeerId, pathname } = useRoute()
@@ -45,23 +46,20 @@ export function useRoom() {
   const otherOpened = useCallback((peerId:string) => {
     setLinkingNum(state => state - 1)
     setLinkedNum(state => state + 1)
-    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ peerId }`, { replace: true })
+    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ peerId || '' }`, { replace: true })
     // 向对方发送我的附件信息
-    setRoomFiles(files => {
-      files.length > 0 && peer.current?.sendDataToPeer(
-        peerId,
-        roomPeerCallback.addFiles,
-        files.filter(file => file.peerId === peer.current?.getPeerId())
-          .map(file => {
-            return {
-              ...file,
-              raw: null
-            }
-          })
-      )
-      return files
-    })
-  }, [myPeerId, navigate, pathname, setRoomFiles])
+    roomFiles.length > 0 && peer.current?.sendDataToPeer(
+      peerId,
+      roomPeerCallback.addFiles,
+      roomFiles.filter(file => file.peerId === peer.current?.getPeerId())
+        .map(file => {
+          return {
+            ...file,
+            raw: []
+          }
+        })
+    )
+  }, [myPeerId, navigate, pathname, roomFiles])
 
   /**
    * 用户离开，删除离开用户的缓存
@@ -74,55 +72,79 @@ export function useRoom() {
     const connPeer = peer.current.getCanSendConnections()
     const id = Object.keys(connPeer)[ 0 ]
 
-    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ id }`, { replace: true })
+    navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ id || '' }`, { replace: true })
 
     // 删除该节点相关的文件
     delDisconnectedFiles(peerId)
-  }, [delDisconnectedFiles])
+  }, [delDisconnectedFiles, myPeerId, navigate, pathname])
 
   /**
    * 请求下载回调（收到请求下载）
    * 把文件流发给对应的节点
    */
-  const reqDownloadCallback = useCallback((peerId:string, file: FileType) => {
-    setRoomFiles(files => {
-      const bufferFile = files.find(item => item.id === file.id)
+  const reqDownloadCallback = useCallback((peerId:string, file: FileType, index = 0) => {
+    const bufferFile = roomFiles.find(item => item.id === file.id)
 
-      const sendRes = peer.current?.sendDataToPeer(peerId, roomPeerCallback.resDownload, bufferFile)
+    /* 只发对应下标的raw过去 */
+    if (bufferFile) {
+      const sendRes = peer.current?.sendDataToPeer(peerId, roomPeerCallback.resDownload, {
+        fileId: file.id,
+        index,
+        raw: bufferFile.raw[ index ]
+      })
 
       if (sendRes) {
         updateFileStatus(file.id, FILE_STATUS.sending)
       }
-      return files
-    })
-  }, [setRoomFiles, updateFileStatus])
+    }
+  }, [roomFiles, updateFileStatus])
 
   /**
    * 响应文件下载（接收文件流）
    * 文件流转成文件下载
    */
-  const resDownloadCallback = useCallback((peerId: string, file: FileType) => {
+  const resDownloadCallback = useCallback((peerId: string, file: TransferType) => {
     console.log('收到下载数据', peerId, file)
     // 记录缓存
-    setRoomFiles(files => files.map(item => item.id === file.id ? file : item))
-    // 下载该文件
-    downloadFile(file)
-    // 更新该文件的状态
-    updateFileStatus(file.id, FILE_STATUS.leisure)
+    setRoomFiles(files => files.map(item => {
+      if (item.id === file.fileId) {
+        const raw = item.raw.concat(file.raw)
+        const newFile = {
+          ...item, raw
+        }
+
+        // 判断raw是否已经接受完成
+        if (raw.length === fileChunkNum(item.size)) {
+          // 下载该文件
+          downloadFile(newFile)
+          // 更新该文件的状态
+          updateFileStatus(file.fileId, FILE_STATUS.leisure)
+        }
+        return newFile
+      }
+      return item
+    }))
     // 通知对方，下载完成
     peer.current?.sendDataToPeer(peerId, roomPeerCallback.downloadFinish, {
-      ...file,
-      raw: null
+      fileId: file.fileId,
+      index: file.index
     })
+    setFresh(state => state + 1)
   }, [downloadFile, setRoomFiles, updateFileStatus])
 
   /**
    * 下载完成回调
    */
-  const downLoadFinishCallback = useCallback((peerId: string, file: FileType) => {
+  const downLoadFinishCallback = useCallback((peerId: string, file: TransferType) => {
     console.log('对方下载已完成', peerId, file)
-    updateFileStatus(file.id, FILE_STATUS.leisure)
-  }, [updateFileStatus])
+    const fileItem = roomFiles.find(item => item.id === file.fileId)
+
+    if (fileItem && fileItem.raw[ file.index + 1 ]) {
+      reqDownloadCallback(peerId, fileItem, file.index + 1)
+    } else {
+      updateFileStatus(file.fileId, FILE_STATUS.leisure)
+    }
+  }, [reqDownloadCallback, roomFiles, updateFileStatus])
 
   /**
    * 连接出现错误，删除对应peerId的文件
@@ -132,31 +154,13 @@ export function useRoom() {
     userLeaveRoom(peerId)
   }, [userLeaveRoom])
 
-  /**
-   * 初始化节点
-   */
-  const initPeer = useCallback(() => {
+  const initRoom = useCallback(async() => {
+    // 初始化本机peer
     peer.current = new PeerLink({
       myPeerId
     })
-  }, [myPeerId])
-
-  const initRoom = useCallback(async() => {
-    // 初始化本机peer
-    initPeer()
-
-    // 注册回调事件
-    peer.current?.registerCallback(peerCallbackEnum.openedPeer, myPeerOpened) // 我的节点已打开
-    peer.current?.registerCallback(peerCallbackEnum.linkPeer, linkPeer) // 连接某个节点
-    peer.current?.registerCallback(peerCallbackEnum.otherOpened, otherOpened) // 对方节点已打开，说明连接完成
-    peer.current?.registerCallback(peerCallbackEnum.aPeerDisconnected, userLeaveRoom) // 有一个节点离开房间
-    peer.current?.registerCallback(peerCallbackEnum.connectionError, connectionError) // 连接发生错误
-    peer.current?.registerCallback(roomPeerCallback.addFiles, addFiles) // 添加文件
-    peer.current?.registerCallback(roomPeerCallback.reqDownload, reqDownloadCallback) // 请求下载文件
-    peer.current?.registerCallback(roomPeerCallback.resDownload, resDownloadCallback) // 响应下载文件
-    peer.current?.registerCallback(roomPeerCallback.downloadFinish, downLoadFinishCallback) // 下载完成
     setFresh(state => state + 1)
-  }, [initPeer, myPeerOpened, linkPeer, otherOpened, userLeaveRoom, connectionError, addFiles, reqDownloadCallback, resDownloadCallback, downLoadFinishCallback])
+  }, [myPeerId])
 
   /**
    * 点击下载文件
@@ -168,7 +172,7 @@ export function useRoom() {
     // 下载中，不能进行
     if (file.status === FILE_STATUS.sending) return
 
-    if (file.raw) {
+    if (file.raw.length === fileChunkNum(file.size)) {
       downloadFile(file)
       return
     }
@@ -196,7 +200,21 @@ export function useRoom() {
       peer.current = undefined
       window.onbeforeunload = null // 释放缓存
     }
-  }, [])
+  }, [initRoom])
+
+  useEffect(() => {
+    // 注册回调事件
+    peer.current?.registerCallback(peerCallbackEnum.openedPeer, myPeerOpened) // 我的节点已打开
+    peer.current?.registerCallback(peerCallbackEnum.linkPeer, linkPeer) // 连接某个节点
+    peer.current?.registerCallback(peerCallbackEnum.otherOpened, otherOpened) // 对方节点已打开，说明连接完成
+    peer.current?.registerCallback(peerCallbackEnum.aPeerDisconnected, userLeaveRoom) // 有一个节点离开房间
+    peer.current?.registerCallback(peerCallbackEnum.connectionError, connectionError) // 连接发生错误
+    peer.current?.registerCallback(peerCallbackEnum.peerError, connectionError) // 连接发生错误
+    peer.current?.registerCallback(roomPeerCallback.addFiles, addFiles) // 添加文件
+    peer.current?.registerCallback(roomPeerCallback.reqDownload, reqDownloadCallback) // 请求下载文件
+    peer.current?.registerCallback(roomPeerCallback.resDownload, resDownloadCallback) // 响应下载文件
+    peer.current?.registerCallback(roomPeerCallback.downloadFinish, downLoadFinishCallback) // 下载完成
+  }, [addFiles, connectionError, downLoadFinishCallback, linkPeer, myPeerOpened, otherOpened, reqDownloadCallback, resDownloadCallback, userLeaveRoom])
 
   return {
     roomFiles,

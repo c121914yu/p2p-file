@@ -1,11 +1,21 @@
 import { FILE_STATUS } from '@/constants'
-import { UserType } from './index'
 
 export interface FileType {
     id: string
     name: string
-    size: string
+    size: number
+    formatSize: string
     status: `${ FILE_STATUS }`
-    raw: File | ArrayBuffer |null,
+    raw: FileBlobItem[],
     peerId: string
+}
+export interface FileBlobItem {
+    index: number
+    blob: Blob
+}
+
+export interface TransferType {
+    index: number
+    fileId: string
+    raw: FileBlobItem
 }

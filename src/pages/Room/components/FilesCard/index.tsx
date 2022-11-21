@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react'
-import { Card, Tag, Empty, Row, Col } from 'antd'
+import { Card, Tag, Empty, Row, Col, Progress } from 'antd'
 import { DownloadOutlined, LoadingOutlined } from '@ant-design/icons'
 import { FILE_STATUS, FILE_STATUS_TEXT } from '@/constants'
 import { FileType } from '@/types'
+import { fileChunkNum } from '../../utils'
 
 import './index.scss'
 
@@ -39,7 +40,11 @@ const FilesCard = ({
               >
                 <div className="left">
                   <div className="name">{file.name}</div>
-                  <div className="size">{file.size}</div>
+                  <div className="size">{file.formatSize}</div>
+                  <Progress
+                    percent={(() => Math.floor(file.raw.length / fileChunkNum(file.size) * 100))()}
+                    size="small"
+                  />
                 </div>
                 <div className="right">
                   {

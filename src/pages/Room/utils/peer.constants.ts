@@ -3,6 +3,7 @@ export enum peerCallbackEnum {
   iDisconnected = 'i-disconnected', // 我的节点断开连接
   iClosed = 'i-closed', // 我的节点销毁了
   aPeerDisconnected = 'a-peer-disconnect', // 一个节点断开了连接
+  aPeerClose = 'a-peer-close', // 一个节点关闭了
   linkPeer = 'link-peer', // 连接某个节点
   otherOpened = 'other-opened', // 连接的节点已经打开
   connections = 'connections', // 收到对方已经连接的节点
