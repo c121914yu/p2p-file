@@ -6,3 +6,19 @@ export interface TransferItemType {
   event: string
   data:any
 }
+
+export interface TransferParams {
+  peerId: string
+  event:string
+  data?:any
+  priority?: boolean
+}
+
+export interface TransferData {
+  id: string
+  countDown: number
+  isReSend: boolean
+  peerId: string
+  event: string
+  data: any
+}

@@ -1,4 +1,5 @@
 export enum peerCallbackEnum {
+  openMyPeer = 'open-my-peer', // 打开我的节点
   openedPeer = 'opened-peer', // 个人节点打开
   iDisconnected = 'i-disconnected', // 我的节点断开连接
   iClosed = 'i-closed', // 我的节点销毁了

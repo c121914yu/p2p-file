@@ -1,5 +1,5 @@
 import { peerCallbackEnum } from './peer.constants'
-import { TransferItemType } from './peer.d'
+import { TransferItemType, TransferParams } from './peer.d'
 import { v4 } from 'uuid'
 interface Props {
   myPeerId?: string
@@ -45,6 +45,8 @@ export class PeerLink {
       this.transferCb(transferId)
     })
 
+    this.runCallback(peerCallbackEnum.openMyPeer)
+
     /**
      * 个人节点打开
      */
@@ -70,11 +72,15 @@ export class PeerLink {
        */
       conn.on('data', (e:any) => {
         console.log('收到一条信息====', e)
-        this.runCallback(e.event, e.peerId, e.data)
-        // 看有没有transferId， 如果有的话说明是通过队列传输的
-        if (e.data?.transferId) {
-          this.sendDataToPeer(conn.peer, peerCallbackEnum.transferCb, e.data.transferId)
+        if (e.id) {
+          // 告诉对方收到了
+          this.sendDataToPeer({
+            peerId: conn.peer,
+            event: peerCallbackEnum.transferCb,
+            data: e.id
+          })
         }
+        this.runCallback(e.event, e.peerId, e.data)
       })
     })
 
@@ -107,13 +113,16 @@ export class PeerLink {
    * 销毁节点.同时告诉其他节点，我退出了
    */
   iDestroy() {
-    this.sendDataToOtherPeers(peerCallbackEnum.aPeerDisconnected)
-    this.sendDataToOtherPeers(peerCallbackEnum.aPeerClose)
+    this.sendDataToOtherPeers({ event: peerCallbackEnum.aPeerDisconnected })
+    this.sendDataToOtherPeers({ event: peerCallbackEnum.aPeerClose })
     setTimeout(() => {
       this.peer.destroy()
     }, 100)
   }
 
+  /**
+   * 获取节点的ID
+   */
   getPeerId():string {
     return this.peer.id
   }
@@ -145,8 +154,10 @@ export class PeerLink {
    * 获取发送消息的conn
    */
   getSendDataPeerConn(peerId: string) {
-    if (!this.getCanSendConnections()[ peerId ]) return
-    return this.getCanSendConnections()[ peerId ].find(conn => !conn.options?.connectionId)
+    const conns = this.getCanSendConnections()[ peerId ]
+
+    if (!conns) return
+    return conns.find(conn => !conn.options?.connectionId)
   }
 
   /**
@@ -154,7 +165,7 @@ export class PeerLink {
    * @param {string} peerId 需要连接的节点
    */
   connectPeer(peerId:string) {
-    if (this.peerCanSended(peerId)) return
+    if (this.getSendDataPeerConn(peerId)) return
     console.log('开始连接节点:', peerId)
     this.runCallback(peerCallbackEnum.linkPeer, peerId)
 
@@ -176,7 +187,11 @@ export class PeerLink {
           peers.push(id)
         }
       }
-      peers.length > 0 && this.sendDataToPeer(peerId, peerCallbackEnum.connections, peers)
+      peers.length > 0 && this.pushTransferFn({
+        peerId,
+        event: peerCallbackEnum.connections,
+        data: peers
+      })
     })
     conn.on('error', (e) => {
       this.runCallback(peerCallbackEnum.connectionError, peerId)
@@ -211,19 +226,34 @@ export class PeerLink {
   /**
    * 向所有连接的节点发送信息
    */
-  sendDataToOtherPeers(event: string, data?:any) {
+  sendDataToOtherPeers({ event, data }:{event: string, data?: any}) {
     for (const peerId in this.getCanSendConnections()) {
-      this.sendDataToPeer(peerId, event, data)
+      this.sendDataToPeer({
+        peerId,
+        event,
+        data,
+      })
     }
   }
 
   /**
    * 向某个节点发送消息
    */
-  sendDataToPeer(peerId:string, event:string, data?:any) {
+  sendDataToPeer({
+    id,
+    peerId,
+    event,
+    data
+  }:{
+    id?: string
+    peerId: string
+    event: string
+    data: any
+  }) {
     if (this.peerCanSended(peerId)) {
       console.log('发送消息===', peerId, event, data)
       this.getSendDataPeerConn(peerId).send({
+        id,
         event,
         peerId: this.peer.id,
         data
@@ -243,37 +273,47 @@ export class PeerLink {
   /**
    * 添加等待发送的内容
    */
-  pushTransferFn({ peerId, event, data }:{peerId: string, event:string, data:any}) {
-    this.transferQueue.push({
+  pushTransferFn({ peerId, event, data, priority = true }:TransferParams) {
+    if (!this.peerCanSended(peerId)) return false
+    const item = {
       id: v4(),
       countDown: this.timeoutVal,
       isReSend: false,
       peerId,
       event,
-      data
-    })
+      data,
+    }
+
+    if (priority) {
+      this.transferQueue.unshift(item)
+    } else {
+      this.transferQueue.push(item)
+    }
+    this.runTransfer()
+    return true
   }
 
   /**
    * 执行发送. 选择最多maxTransferNum个数据进行发送
    */
   runTransfer() {
-    if (this.transferTimer) return // 运行中，不需要再执行
-    for (let i = 0; i < this.maxTransferNum; i++) {
+    if (!this.transferTimer) {
+      // 每秒检查一次发送情况
+      this.transferTimer = setInterval(() => this.checkTransfer(), 1000)
+    }
+    for (let i = 0; i < this.maxTransferNum - this.transferringQueue.length; i++) {
       const item = this.transferQueue.shift()
 
       if (item) {
         this.transferringQueue.push(item)
+        this.sendDataToPeer({
+          id: item.id,
+          peerId: item.peerId,
+          event: item.event,
+          data: item.data
+        })
       }
     }
-    this.transferringQueue.forEach(item => {
-      this.sendDataToPeer(item.peerId, item.event, {
-        transferId: item.id,
-        data: item.data
-      })
-    })
-    // 每秒检查一次发送情况
-    this.transferTimer = setInterval(() => this.checkTransfer(), 1000)
   }
 
   /**
@@ -312,8 +352,10 @@ export class PeerLink {
           return
         } else { // 重发一次
           item.isReSend = true
-          this.sendDataToPeer(item.peerId, item.event, {
-            transferId: item.id,
+          this.sendDataToPeer({
+            id: item.id,
+            peerId: item.peerId,
+            event: item.event,
             data: item.data
           })
         }
@@ -335,8 +377,10 @@ export class PeerLink {
 
     if (item) {
       this.transferringQueue.push(item)
-      this.sendDataToPeer(item.peerId, item.event, {
-        transferId: item.id,
+      this.sendDataToPeer({
+        id: item.id,
+        peerId: item.peerId,
+        event: item.event,
         data: item.data
       })
       return true
