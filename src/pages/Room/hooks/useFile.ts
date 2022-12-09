@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { FileType, FileBlobItem } from '@/types'
 import { FILE_STATUS } from '@/constants'
+import { $info } from '@/utils'
 
 export function useFiles() {
   const [roomFiles, setRoomFiles] = useState<FileType[]>([])
@@ -12,7 +13,8 @@ export function useFiles() {
    */
   const addFiles = useCallback((peerId:string, files:FileType[]) => {
     setRoomFiles(state => state.concat(files))
-    console.log(peerId, files, '某个用户文件更新啦')
+    $info('有文件更新啦', { key: Date.now() })
+    console.log(`用户 ${ peerId } 的文件更新啦`, files)
   }, [])
 
   /**

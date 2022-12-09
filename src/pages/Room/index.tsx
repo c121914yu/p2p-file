@@ -10,6 +10,7 @@ import { v4 } from 'uuid'
 import { useRoom } from './hooks/useRoom'
 import FileItem from './components/FilesCard'
 import RoomHeader from './components/Header'
+import { fileChunkSize } from './utils'
 import './index.scss'
 
 const Room = () => {
@@ -31,7 +32,7 @@ const Room = () => {
    * 切割文件
    */
   const splitFile = useCallback((file:File) => {
-    const size = 1 * 1024 * 1024 // 1M
+    const size = fileChunkSize
 
     if (file.size <= size) {
       return [{
@@ -70,7 +71,6 @@ const Room = () => {
       }
     })
 
-    console.log(newFiles)
     setRoomFiles([...newFiles, ...roomFiles])
     sendDataToOtherPeers(roomPeerCallback.addFiles, newFiles.map(file => {
       return {

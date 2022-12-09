@@ -3,6 +3,7 @@ import { FileType, TransferType } from '@/types'
 import { useNavigate } from 'react-router-dom'
 import { roomPeerCallback, FILE_STATUS } from '@/constants'
 import useRoute from '@/hooks/useRoute'
+import { $loading, $error, $hideMsg, $info } from '@/utils'
 import { peerCallbackEnum } from '../utils/peer.constants'
 import { PeerLink } from '../utils/peer'
 import { useFiles } from './useFile'
@@ -29,13 +30,7 @@ export function useRoom() {
    * 打开我的节点
    */
   const openMyPeer = useCallback(() => {
-    setLinkingNum(state => state + 1)
-  }, [])
-
-  /**
-   * 连接其他节点
-   */
-  const linkPeer = useCallback(() => {
+    $loading('正在获取我的节点')
     setLinkingNum(state => state + 1)
   }, [])
 
@@ -46,17 +41,49 @@ export function useRoom() {
     // 如果存在connectId，则触发节点连接
     if (connectId) {
       peer.current?.connectPeer(connectId)
+    } else {
+      $hideMsg()
     }
   }, [connectId])
+
+  /**
+   * 开始连接其他节点
+   */
+  const linkPeer = useCallback(() => {
+    $loading('有用户正在加入')
+    setLinkingNum(state => state + 1)
+    setLinkedNum(state => state + 1)
+  }, [])
+
+  /**
+   * 节点出现错误, 连接中数量减一。（可能是自己错误，也可能是link时错误）
+   */
+  const peerError = useCallback(() => {
+    $error('有用户加入失败了')
+    setLinkingNum(state => state - 1)
+    setLinkedNum(state => state - 1)
+
+    // 更改url到一个连接中的节点
+    const connPeers = peer?.current?.getCanSendConnections()
+
+    if (connPeers) {
+      const id = connPeers[ 0 ]?.peer || ''
+
+      navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ id }`, { replace: true })
+    }
+
+  }, [myPeerId, navigate, pathname])
 
   /**
    * 对方节点已打开
    */
   const otherOpened = useCallback((peerId:string) => {
+    $hideMsg()
     setLinkingNum(state => state - 1)
-    setLinkedNum(state => state + 1)
 
+    // 替换域名，connectId指向最新节点
     navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ peerId || '' }`, { replace: true })
+
     // 向对方发送我的附件信息
     roomFiles.length > 0 && peer.current?.pushTransferFn({
       peerId,
@@ -65,9 +92,10 @@ export function useRoom() {
         .map(file => {
           return {
             ...file,
-            raw: []
+            raw: [] // 不要发送文件数据
           }
-        })
+        }),
+      priority: true, // 优先发送
     })
   }, [myPeerId, navigate, pathname, roomFiles])
 
@@ -77,12 +105,15 @@ export function useRoom() {
   const userLeaveRoom = useCallback((peerId:string) => {
     if (!peer.current) return
     console.log('有用户离开房间，清除它的文件')
+    $info('有用户离开了房间', { key: Date.now() })
     setLinkedNum(state => state - 1)
-    // 替换成目前在连接的节点
-    const connPeer = peer.current.getCanSendConnections()
-    const id = Object.keys(connPeer)[ 0 ]
 
-    if (id) { // 没有id的话就不用去替换了
+    // 替换成目前在连接的节点
+    const connPeers = peer?.current?.getCanSendConnections()
+
+    if (connPeers && connPeers.length > 0) {
+      const id = connPeers[ 0 ]?.peer || ''
+
       navigate(`${ pathname }?myPeerId=${ myPeerId }&connectId=${ id }`, { replace: true })
     }
 
@@ -97,22 +128,22 @@ export function useRoom() {
   const reqDownloadCallback = useCallback((peerId:string, file: FileType) => {
     const bufferFile = roomFiles.find(item => item.id === file.id)
 
-    /* 只发对应下标的raw过去 */
-    if (bufferFile) {
-      for (let i = 0; i < bufferFile.raw.length; i++) {
-        peer.current?.pushTransferFn({
-          peerId,
-          event: roomPeerCallback.resDownload,
-          data: {
-            fileId: file.id,
-            index: i,
-            raw: bufferFile.raw[ i ]
-          },
-          priority: false
-        })
-      }
-      updateFileStatus(file.id, FILE_STATUS.sending)
+    if (!bufferFile) return
+    $info(`有用户请求下载文件: ${ file.name }`, { key: Date.now() })
+
+    for (let i = 0; i < bufferFile.raw.length; i++) {
+      peer.current?.pushTransferFn({
+        peerId,
+        event: roomPeerCallback.resDownload,
+        data: {
+          fileId: file.id,
+          index: i,
+          raw: bufferFile.raw[ i ]
+        },
+        priority: false
+      })
     }
+    updateFileStatus(file.id, FILE_STATUS.sending)
   }, [roomFiles, updateFileStatus])
 
   /**
@@ -143,7 +174,8 @@ export function useRoom() {
             data: {
               fileId: file.fileId,
               index: file.index
-            }
+            },
+            priority: true
           })
         }
         return newFile
@@ -162,22 +194,16 @@ export function useRoom() {
   }, [updateFileStatus])
 
   /**
-   * 节点出现错误, 连接中数量减一。（可能是自己错误，也可能是link时错误）
-   */
-  const peerError = useCallback(() => {
-    setLinkingNum(state => state - 1)
-  }, [])
-
-  /**
    * 节点间连接有错误。验证该节点是否正确
    */
   const connectionError = useCallback((peerId: string) => {
-    const isConnected = peer.current?.getSendDataPeerConn(peerId)
+    const isConnected = peer.current?.checkConn(peerId)
 
     if (!isConnected) {
       console.log('该节点已经断开，删除它')
       userLeaveRoom(peerId)
     }
+
     roomFiles.forEach(item => {
       // 我自己的文件都改成leisure
       if (item.peerId === peer.current?.getPeerId()) {
@@ -203,7 +229,7 @@ export function useRoom() {
     if (file.peerId === peer.current?.getPeerId()) return
     // 下载中，不能进行
     if (file.status === FILE_STATUS.sending) return
-
+    // 已经有缓存了，则直接下载
     if (file.raw.length === fileChunkNum(file.size)) {
       downloadFile(file)
       return
