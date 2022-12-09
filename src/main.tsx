@@ -4,7 +4,7 @@ import App from './App'
 import { HashRouter } from 'react-router-dom'
 
 import { ConfigProvider } from 'antd'
-import 'antd/dist/antd.less'
+// import 'antd/dist/antd.less'
 import locale from 'antd/es/locale/zh_CN'
 import './index.scss'
 

@@ -8,6 +8,12 @@ function resolve(url) {
   return path.resolve(__dirname, url)
 }
 
+enum ModeType {
+  dev = 'development',
+  test = 'text',
+  prod = 'production'
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, './')
@@ -28,9 +34,16 @@ export default defineConfig(({ mode }) => {
         'Access-Control-Allow-Origin': '*',
       },
     },
-    base: mode === 'development' ? './' : `${ env.VITE_APP_ROOT }`, // 生产环境要绝对路径，否则子应用无法找到
+    base: mode === ModeType.dev ? './' : `${ env.VITE_APP_ROOT }`, // 生产环境要绝对路径，否则子应用无法找到
     build: {
-      assetsDir: './'
+      assetsDir: './',
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: mode === ModeType.prod,
+          drop_debugger: mode === ModeType.prod,
+        }
+      },
     },
     resolve: { // 配置路径别名
       alias: {

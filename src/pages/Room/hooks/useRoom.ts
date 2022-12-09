@@ -171,10 +171,7 @@ export function useRoom() {
           peer.current?.pushTransferFn({
             peerId,
             event: roomPeerCallback.downloadFinish,
-            data: {
-              fileId: file.fileId,
-              index: file.index
-            },
+            data: file.fileId,
             priority: true
           })
         }
@@ -188,9 +185,9 @@ export function useRoom() {
   /**
    * 下载完成回调
    */
-  const downLoadFinishCallback = useCallback((peerId: string, file: TransferType) => {
-    console.log('对方下载已完成', peerId, file)
-    updateFileStatus(file.fileId, FILE_STATUS.leisure)
+  const downLoadFinishCallback = useCallback((peerId: string, fileId:string) => {
+    console.log('对方下载已完成', peerId, fileId)
+    updateFileStatus(fileId, FILE_STATUS.leisure)
   }, [updateFileStatus])
 
   /**
