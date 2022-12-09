@@ -210,6 +210,8 @@ export function useRoom() {
   }, [roomFiles, updateFileStatus, userLeaveRoom])
 
   const initRoom = useCallback(async() => {
+    setLinkingNum(0)
+    setLinkedNum(1)
     // 初始化本机peer
     peer.current = new PeerLink({
       myPeerId

@@ -81,8 +81,13 @@ export class PeerLink {
        */
       conn.on('data', (e:SendDataType) => {
         console.log('收到一条信息====', e)
+        const noCallbackFn = [
+          peerCallbackEnum.transferCb,
+          peerCallbackEnum.aPeerClose
+        ]
+
         // 告诉对方收到了。如果收到的是一条 回调成功 消息，则不需要回复
-        if (e.event !== peerCallbackEnum.transferCb) {
+        if (noCallbackFn.indexOf(e.event as peerCallbackEnum) > -1) {
           this.sendDataToPeer({ // 这里不能用队列，因为对方不会再回调给我。
             id: v4(),
             peerId: e.peerId,
@@ -107,6 +112,7 @@ export class PeerLink {
      * 连接失败
      */
     this.peer.on('error', (e) => {
+      if (!this.peer) return
       console.log('peer连接出错了', e)
       // 检测有效节点，无效的全部close掉
       for (const conn of this.getCanSendConnections()) {
@@ -140,8 +146,23 @@ export class PeerLink {
   iDestroy() {
     this.sendDataToOtherPeers({ event: peerCallbackEnum.aPeerClose })
     setTimeout(() => {
-      this.peer.destroy()
-    }, 100)
+      this.destroySelf()
+    })
+  }
+
+  /**
+   * 销毁自身实例
+   */
+  destroySelf() {
+    clearInterval(this.transferCheckTimer)
+    this.transferCheckTimer = null
+
+    // 删除所有的等待传输和传输中内容
+    this.transferQueue = []
+    this.transferringQueue = []
+
+    this.peer.destroy()
+    this.peer = null
   }
 
   /**
@@ -284,12 +305,17 @@ export class PeerLink {
       data,
     }
 
-    if (priority) {
-      this.transferQueue.unshift(item)
+    if (priority) { // 优先发送的，直接发出
+      this.sendDataToPeer({
+        id: item.id,
+        event: item.event,
+        data: item.data,
+        peerId: item.peerId
+      })
     } else {
       this.transferQueue.push(item)
+      this.runTransfer()
     }
-    this.runTransfer()
     return true
   }
 
