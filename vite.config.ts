@@ -10,7 +10,7 @@ function resolve(url) {
 
 enum ModeType {
   dev = 'development',
-  test = 'text',
+  test = 'test',
   prod = 'production'
 }
 
