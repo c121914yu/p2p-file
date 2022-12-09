@@ -59,7 +59,7 @@ export function useRoom() {
    * 节点出现错误, 连接中数量减一。（可能是自己错误，也可能是link时错误）
    */
   const peerError = useCallback(() => {
-    $error('有用户加入失败了')
+    $error('有用户加入失败了', { key: Date.now() })
     setLinkingNum(state => state - 1)
     setLinkedNum(state => state - 1)
 

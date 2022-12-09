@@ -147,7 +147,7 @@ export class PeerLink {
     this.sendDataToOtherPeers({ event: peerCallbackEnum.aPeerClose })
     setTimeout(() => {
       this.destroySelf()
-    })
+    }, 100)
   }
 
   /**
